@@ -2,29 +2,9 @@
 
 #include "shared.h"
 
-#define INTBASIC_TOKENS_BEGIN_INDEX 128
-#define INTBASIC_TOKENS_END_INDEX 234
-
-#define FILE_BUFFER_SIZE (DSK_SIZE)
-
-#define LIST_TO_STDOUT 1
-
 static struct {
   Stream src;
 } intbasic;
-
-char* TranslateChar(unsigned c) {
-  // TODO: Check translation of string characters
-  static char buf[10];
-  unsigned unshifted = c & 0x7F;
-  if (unshifted < 0x20) {
-    sprintf(buf, "<C-%c>", 0x40 + unshifted);
-  } else {
-    buf[0] = unshifted;
-    buf[1] = 0;
-  }
-  return buf;
-}
 
 void ListLine(int line_length, FILE* dst) {
   FILE* target;
@@ -37,16 +17,18 @@ void ListLine(int line_length, FILE* dst) {
   fprintf(target, "%5d ", line_number);
   unsigned line_start_pos = intbasic.src.pos; // save intbasic.src.pos
   unsigned line_end_pos = line_start_pos + line_length - 3;
-  while (intbasic.src.pos < line_end_pos) {
-    unsigned pos = intbasic.src.pos - line_start_pos;
-    if (pos > 0 && pos % 16 == 0)
-      fprintf(target, "\n      ");
-    unsigned c = Read(&intbasic.src);
-    fprintf(target, " %02X", c);
+  if (LIST_BINARY) {
+    while (intbasic.src.pos < line_end_pos) {
+      unsigned pos = intbasic.src.pos - line_start_pos;
+      if (pos > 0 && pos % 16 == 0)
+        fprintf(target, "\n      ");
+      unsigned c = Read(&intbasic.src);
+      fprintf(target, " %02X", c);
+    }
+    fprintf(target, "\n");
+    intbasic.src.pos = line_start_pos; // restore intbasic.src.pos
+    fprintf(target, "%5d ", line_number);
   }
-  fprintf(target, "\n");
-  intbasic.src.pos = line_start_pos; // restore intbasic.src.pos
-  fprintf(target, "%5d ", line_number);
   while (intbasic.src.pos < line_end_pos) {
     unsigned c = Read(&intbasic.src);
     switch (c) {

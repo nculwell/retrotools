@@ -3,7 +3,7 @@
 #define APPLESOFT_TOKENS_BEGIN_INDEX 128
 #define APPLESOFT_TOKENS_END_INDEX 234
 
-const char** APPLESOFT_TOKENS = {
+const char* APPLESOFT_TOKENS[] = {
   "END",      // 128
   "FOR",      // 129
   "NEXT",     // 130
@@ -27,8 +27,8 @@ const char** APPLESOFT_TOKENS = {
   "HPLOT",    // 147
   "DRAW",     // 148
   "XDRAW",    // 149
-  "HTAB",     // 150
-  "HOME",     // 151
+  "HOME",     // 150 docs said HTAB
+  "HTAB",     // 151 docs said HOME
   "ROT=",     // 152
   "SCALE=",   // 153
   "SHLOAD",   // 154
@@ -53,8 +53,8 @@ const char** APPLESOFT_TOKENS = {
   "IF",       // 173
   "RESTORE",  // 174
   "&",        // 175
-  "GOSUB",    // 176
-  "RETURN",   // 177
+  "RETURN",   // 176
+  "GOSUB",    // 177
   "REM",      // 178
   "STOP",     // 179
   "WAIT",     // 181

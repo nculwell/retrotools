@@ -8,6 +8,7 @@
 #include "shared.h"
 
 void Die_impl(const char* file, int line, const char* msg, ...) {
+  putchar('\n');
   fprintf(stderr, "[%s:%d] ", file, line);
   va_list ap;
   va_start(ap, msg);
@@ -114,5 +115,18 @@ void ConcatPath(
     Die("Part 2 of path is too long: %s", part2);
   assert(i < path_len);
   path[i] = 0;
+}
+
+char* TranslateChar(unsigned c) {
+  // TODO: Check translation of string characters
+  static char buf[10];
+  unsigned unshifted = c & 0x7F;
+  if (unshifted < 0x20) {
+    sprintf(buf, "<C-%c>", 0x40 + unshifted);
+  } else {
+    buf[0] = unshifted;
+    buf[1] = 0;
+  }
+  return buf;
 }
 

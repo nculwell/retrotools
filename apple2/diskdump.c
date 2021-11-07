@@ -111,6 +111,7 @@ struct VtocSector {
 } __attribute__((packed));
 typedef struct VtocSector VtocSector;
 
+void FpBasicListProgram(const char* src_path, FILE* dst);
 void ListProgram(const char* src_path, FILE* dst);
 
 Stream dsk_stream;
@@ -225,11 +226,73 @@ void TranslateTextFile(const char* dst_path, const char* src_path) {
   fclose(src);
 }
 
+void ListFpBasicFile(const char* dst_path, const char* src_path) {
+  FILE* dst = fopen(dst_path, "wt");
+  if (!dst)
+    Die("Unable to open file: %s", dst_path);
+  FpBasicListProgram(src_path, dst);
+  fclose(dst);
+}
+
 void ListIntegerBasicFile(const char* dst_path, const char* src_path) {
   FILE* dst = fopen(dst_path, "wt");
   if (!dst)
     Die("Unable to open file: %s", dst_path);
   ListProgram(src_path, dst);
+  fclose(dst);
+}
+
+#define HEX_DUMP_LINE_BYTES 16
+
+void HexDumpChars(FILE* dst, const char* bytes) {
+  fprintf(dst, "  ");
+  for (unsigned i=0; i < HEX_DUMP_LINE_BYTES; i++) {
+    unsigned c = *(bytes++);
+    c &= 0x7F;
+    if (c < 0x20 || c == 0x7F)
+      c = '.';
+    fprintf(dst, "%c", c);
+  }
+  fprintf(dst, "\n");
+}
+
+void HexDump(const char* dst_path, const char* src_path) {
+  Stream binary_stream;
+  InitStream(&binary_stream);
+  FILE* dst = fopen(dst_path, "wt");
+  if (!dst)
+    Die("Unable to open file: %s", dst_path);
+  ReadFileWithLengthPrefix(src_path, &binary_stream, 2);
+  binary_stream.pos = 0;
+  unsigned load_address = ReadUint16(&binary_stream);
+  fprintf(dst, "LOAD ADDRESS: %04x\n", load_address);
+  ReadUint16(&binary_stream); // advance past length
+  bool need_chars;
+  for (unsigned offset=0; binary_stream.pos < binary_stream.len; offset++) {
+    if (offset % HEX_DUMP_LINE_BYTES == 0) {
+      if (offset > 0) {
+        HexDumpChars(dst, const char* bytes);
+        fprintf(dst, "  ");
+        for (unsigned i=0; i < 16; i++) {
+          unsigned c = binary_stream.buf[binary_stream.pos-8+i];
+          c &= 0x7F;
+          if (c < 0x20 || c == 0x7F)
+            c = '.';
+          fprintf(dst, "%c", c);
+        }
+        fprintf(dst, "\n");
+        need_chars = false;
+      } else {
+        need_chars = true;
+      }
+      fprintf(dst, "%08x: ", offset);
+    }
+    if (offset % 2 == 0) {
+      fprintf(dst, " ");
+    }
+    unsigned byte = Read(&binary_stream);
+    fprintf(dst, "%02x", byte);
+  }
   fclose(dst);
 }
 
@@ -257,11 +320,11 @@ void ExtractFile(const DirectoryEntry* de, const char* dir) {
       break;
     case 'A':
       ConcatPath(tr_output_path, PATH_LEN, output_path, "A.bas", '.');
-      // TODO: List Applesoft BASIC.
+      ListFpBasicFile(tr_output_path, output_path);
       break;
     case 'B':
       ConcatPath(tr_output_path, PATH_LEN, output_path, "bin.txt", '.');
-      // TODO: Generate hex dump of binary file.
+      HexDump(tr_output_path, output_path);
       break;
   }
 }

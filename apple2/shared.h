@@ -18,6 +18,9 @@
 #define PATH_LEN 1024
 #define SECTOR_SIZE 256
 
+#define LIST_BINARY 0
+#define LIST_TO_STDOUT 0
+
 #define STREAM_BUFFER_SIZE (DSK_SIZE)
 
 #if defined(_WIN32) && !defined(__CYGWIN__)
@@ -48,4 +51,5 @@ void ReadFileWithLengthPrefix(const char* path, Stream* stream, unsigned bytes_t
 unsigned Read(Stream* s);
 unsigned ReadUint16(Stream* s);
 void ConcatPath(char* path, int path_len, const char* part1, const char* part2, char separator);
+char* TranslateChar(unsigned c);
 
