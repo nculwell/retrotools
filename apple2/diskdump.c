@@ -244,7 +244,7 @@ void ListIntegerBasicFile(const char* dst_path, const char* src_path) {
 
 #define HEX_DUMP_LINE_BYTES 16
 
-void HexDumpChars(FILE* dst, const char* bytes) {
+void HexDumpChars(FILE* dst, const unsigned char* bytes) {
   fprintf(dst, "  ");
   for (unsigned i=0; i < HEX_DUMP_LINE_BYTES; i++) {
     unsigned c = *(bytes++);
@@ -267,20 +267,14 @@ void HexDump(const char* dst_path, const char* src_path) {
   unsigned load_address = ReadUint16(&binary_stream);
   fprintf(dst, "LOAD ADDRESS: %04x\n", load_address);
   ReadUint16(&binary_stream); // advance past length
+  //unsigned start_pos = binary_stream.pos;
   bool need_chars;
-  for (unsigned offset=0; binary_stream.pos < binary_stream.len; offset++) {
+  unsigned offset;
+  for (offset=0; binary_stream.pos < binary_stream.len; offset++) {
     if (offset % HEX_DUMP_LINE_BYTES == 0) {
       if (offset > 0) {
-        HexDumpChars(dst, const char* bytes);
-        fprintf(dst, "  ");
-        for (unsigned i=0; i < 16; i++) {
-          unsigned c = binary_stream.buf[binary_stream.pos-8+i];
-          c &= 0x7F;
-          if (c < 0x20 || c == 0x7F)
-            c = '.';
-          fprintf(dst, "%c", c);
-        }
-        fprintf(dst, "\n");
+        HexDumpChars(dst,
+            binary_stream.buf + binary_stream.pos + offset - HEX_DUMP_LINE_BYTES);
         need_chars = false;
       } else {
         need_chars = true;
@@ -293,6 +287,9 @@ void HexDump(const char* dst_path, const char* src_path) {
     unsigned byte = Read(&binary_stream);
     fprintf(dst, "%02x", byte);
   }
+  if (need_chars)
+    HexDumpChars(dst,
+        binary_stream.buf + binary_stream.pos - (offset % HEX_DUMP_LINE_BYTES));
   fclose(dst);
 }
 
