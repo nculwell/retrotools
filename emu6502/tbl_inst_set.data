@@ -1,0 +1,180 @@
+# vim: noet ts=8 sts=8 sw=8
+
+# Tab-separated table data.
+# Parser will skip any line not starting with a hex digit.
+
+# Columns:
+# [Opcode byte value (hex)] [Assembler mnemonic] [Addressing mode]
+
+# Addressing modes are:
+# impl: implied
+# A: operate on register A (treated the same as implied)
+# zpg: zero-page (1-byte address operand, 00 high byte assumed)
+
+00	BRK	impl
+01	ORA	Xind
+05	ORA	zpg
+06	ASL	zpg
+08	PHP	impl
+09	ORA	imm
+0A	ASL	A
+0D	ORA	abs
+0E	ASL	abs
+
+10	BPL	rel
+11	ORA	indY
+15	ORA	zpg
+16	ASL	zpgX
+18	CLC	impl
+19	ORA	absY
+1D	ORA	absX
+1E	ASL	absX
+
+20	JSR	abs
+21	AND	Xind
+24	BIT	zpg
+25	AND	zpg
+26	ROL	zpg
+28	PLP	impl
+29	AND	imm
+2A	ROL	A
+2C	BIT	abs
+2D	AND	abs
+2E	ROL	abs
+
+30	BMI	rel
+31	AND	indY
+35	AND	zpg
+36	ROL	zpgX
+38	SEC	impl
+39	AND	absY
+3D	AND	absX
+3E	ROL	absX
+
+40	RTI	impl
+41	EOR	Xind
+45	EOR	zpg
+46	LSR	zpg
+48	PHA	impl
+49	EOR	imm
+4A	LSR	A
+4C	JMP	abs
+4D	EOR	abs
+4E	LSR	abs
+
+50	BVC	rel
+51	EOR	indY
+55	EOR	zpg
+56	LSR	zpg
+58	CLI	impl
+59	EOR	absY
+5D	EOR	absX
+5E	LSR	absX
+
+60	RTS	impl
+61	ADC	Xind
+65	ADC	zpg
+66	ROR	zpg
+68	PLA	impl
+69	ADC	imm
+6A	ROR	A
+6C	JMP	ind
+6D	ADC	abs
+6E	ROR	abs
+
+70	BVS	rel
+71	SBC	indY
+75	ADC	zpgX
+76	ROR	zpgX
+78	SEI	impl
+79	ADC	absY
+7D	ADC	absY
+7E	ROR	absX
+
+81	STA	Xind
+84	STY	zpg
+85	STA	zpg
+86	STX	zpg
+88	DEY	impl
+8A	TXA	impl
+8C	STY	abs
+8D	STA	abs
+8E	STX	abs
+
+90	BCC	rel
+91	STA	indY
+94	STY	zpgX
+95	STA	zpgX
+96	STX	zpgY
+98	TYA	impl
+99	STA	absY
+9A	TXS	impl
+9D	STA	absX
+
+A0	LDY	imm
+A1	LDA	Xind
+A2	LDX	imm
+A4	LDY	zpg
+A5	LDA	zpg
+A6	LDX	zpg
+A8	TAY	impl
+A9	LDA	imm
+AA	TAX	impl
+AC	LDY	abs
+AD	LDA	abs
+AE	LDX	abs
+
+B0	BCS	rel
+B1	LDA	indY
+B4	LDY	zpgX
+B5	LDA	zpgX
+B6	LDX	zpgY
+B8	CLV	impl
+B9	LDA	absY
+BA	TSX	impl
+BC	LDY	absX
+BD	LDA	absX
+BE	LDX	absY
+
+C0	CPY	imm
+C1	CMP	Xind
+C4	CPY	zpg
+C5	CMP	zpg
+C6	DEC	zpg
+C8	INY	impl
+C9	CMP	imm
+CA	DEX	impl
+CC	CPY	abs
+CD	CMP	abs
+CE	DEC	abs
+
+D0	BNE	rel
+D1	CMP	indY
+D5	CMP	zpgX
+D6	DEC	zpgX
+D8	CLD	impl
+D9	CMP	absY
+DD	CMP	absX
+DE	DEC	absX
+
+E0	CPX	imm
+E1	SBC	Xind
+E4	CPX	zpg
+E5	SBC	zpg
+E6	INC	zpg
+E8	INX	impl
+E9	SBC	imm
+EA	NOP	impl
+EC	CPX	abs
+ED	SBC	abs
+EE	INC	abs
+
+F0	BEQ	rel
+F1	SBC	indY
+F5	SBC	zpgX
+F6	INC	zpgX
+F8	SED	impl
+F9	SBC	absY
+FD	SBC	absX
+FE	INC	absX
+

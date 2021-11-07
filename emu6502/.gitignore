@@ -1,0 +1,14 @@
+*
+!Makefile
+!*.*
+*~
+.*.swp
+*.o
+*.exe
+[^.]
+*.log
+*.bin
+*.txt
+*.hex
+*.tmp
+*.inc

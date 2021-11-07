@@ -1,0 +1,103 @@
+Integer basic file format:
+two-byte length
+each line:
+  1 byte line length (counting all bytes including this one)
+  2 byte line number
+  code
+  $01 = end-of-line marker
+
+03 : (command separator)
+12 +
+13 -
+14 *
+15 /
+16 = operator in expr
+19 >
+1c <
+1e or
+23 comma in substring
+24 implicit goto after if-then (same arg as goto)
+25 then followed by statement
+26 ,
+27 , (?)
+28 open double quote
+29 close double quote
+2a open paren for substring
+2e peek
+38 open paren
+39 = str array elt equal
+3f ( open paren for peek arg
+40 $
+45 ; separator of print args (print 62)
+47 ;
+4d call
+51 end
+52 input (INPUT A$)
+53 input (with prompt)
+54 input (INPUT A)
+55 for
+56 = (in for stmt)
+57 to (for stmt)
+58 step (for stmt)
+59 next
+5a [not attested]
+5b return
+5c gosub
+5d rem
+5e [not attested]
+5f goto (followed by Bx where x is 1st digit, then 2-byte hex of dest line number)
+60 if
+61 print (1 arg)
+62 print (2 args)
+63 print (no args)
+64 poke
+65 , comma in poke args
+66 color=
+67 plot
+68 , comma in plot args
+71 =
+72 close paren for substring
+72 close paren (peek arg)
+Bx yy yy first digit of number, then two-digit little endian int
+
+4d 36 b9 a8 03
+CALL -936
+
+2e 3f ca 12 b2 02
+PEEK (J+2)
+
+   10  4D 36 B9 A8 03 01
+   20  63 03 63 01
+   30  61 28 84 CE CF CD CF CE A0 C9 AC CF AC C3 29 01
+   40  61 28 CC CF C1 C4 C9 CE C7 29 01
+   50  61 28 84 D2 D5 CE A0 C6 D2 C1 C3 C1 D3 29 01
+
+   10 CALL -936
+   20 PRINT : PRINT
+   30 PRINT "NOMON I,O,C"
+   40 PRINT "LOADING"
+   50 PRINT "RUN FRACAS"
+
+GOTO 9500   5F B9 1C 25
+GOTO 240    5F B2 F0 00
+GOTO 230    5F B2 E6 00
+GOTO 290    5F B2 22 01
+GOTO 15080  5F B1 E8 3A
+
+PRINT A$;   61 C1 40 47
+
+IF A<0 THEN 15060   60 C1 1C B0 00 00 24 B1 D4 3A
+
+POKE 60,4: POKE 61,8: POKE 62,5: POKE 63,8: CALL -259
+64 B6 3C 00 65 B4 04 00 : 64 B6 3D 00 65 B8 08 00 : 64 B6 3E 00 65 B5 05 00 : 64 B6 3F 00 65 B8 08 00 : 4D 36 B2 03
+
+IF A<0 OR A>20 THEN 12840
+60 C1 1C B0 00 00 1E C1 19 B2 14 00 24 B1 28 32
+
+5C B7 4C 1D
+GOSUB 7500
+
+12350  CC D2 71 2E 3F C1 12 B1 0A 00 72 12 B2 00 01 14 2E 3F C1 12 B1 0B 00 72 03 60 37 CC D2 24 B1 70 30 01      
+12350 LR= PEEK (A+10)+256* PEEK (A+11): IF NOT LR THEN 12400
+
+
