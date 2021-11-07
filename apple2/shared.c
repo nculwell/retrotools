@@ -18,26 +18,31 @@ void Die_impl(const char* file, int line, const char* msg, ...) {
 }
 
 void ReadFileWithKnownLength(
-    const char* path, unsigned char* file_buffer, unsigned file_len)
+    const char* path, Stream* stream, unsigned file_len)
 {
+  if (file_len > stream->cap)
+    Die("File length %d exceeds buffer size %d.", file_len, stream->cap);
   FILE* f = fopen(path, "rb");
   if (!f) {
     Die("Unable to open file: %s", path);
   }
-  size_t n_read = fread(file_buffer, 1, file_len, f);
+  size_t n_read = fread(stream->buf, 1, file_len, f);
   if (n_read != file_len || ferror(f))
     Die("Error reading file: %s", path);
+  // Can't do this check currently because we extract files with trailing zeroes.
   //if (getc(f) != EOF)
   //  Die("File too short: %s", path);
   if (ferror(f))
     Die("Error reading file: %s", path);
+  stream->pos = 0;
+  stream->len = file_len;
 }
 
-unsigned ReadFileWithLengthPrefix(
-    const char* path, unsigned char* file_buffer, unsigned file_buffer_len,
+void ReadFileWithLengthPrefix(
+    const char* path, Stream* stream,
     unsigned bytes_to_skip)
 {
-  if (file_buffer_len < bytes_to_skip + 2)
+  if (stream->cap < bytes_to_skip + 2)
     Die("File buffer is too small.");
   printf("Reading file: %s\n", path);
   FILE* f = fopen(path, "rb");
@@ -46,31 +51,44 @@ unsigned ReadFileWithLengthPrefix(
   size_t offset = 0;
   size_t n_read;
   if (bytes_to_skip > 0) {
-    n_read = fread(file_buffer, 1, bytes_to_skip, f);
+    n_read = fread(stream->buf, 1, bytes_to_skip, f);
     if (n_read != bytes_to_skip || ferror(f))
       Die("Error reading file: %s", path);
     offset += n_read;
   }
-  n_read = fread(file_buffer + offset, 1, 2, f);
+  n_read = fread(stream->buf + offset, 1, 2, f);
   if (n_read != 2 || ferror(f))
     Die("Error reading file: %s", path);
   unsigned file_len =
-    (unsigned)file_buffer[offset]
-    | ((unsigned)file_buffer[offset+1] << 8);
+    (unsigned)stream->buf[offset]
+    | ((unsigned)stream->buf[offset+1] << 8);
   //printf("File len bytes: %02X %02X\n", file_buffer[0], file_buffer[1]);
   offset += 2;
-  if (file_len > file_buffer_len)
+  if (file_len > stream->cap)
     Die("File's indicated length (%d) too long for available buffer (%d): %s",
-        file_len, file_buffer_len, path);
+        file_len, stream->cap, path);
   printf("(reading file with length: %02x)\n", file_len);
 #if 0
   ReadFileWithKnownLength(path, file_buffer, file_len + bytes_to_skip + 2);
 #endif
-  n_read = fread(file_buffer + offset, 1, file_len, f);
+  n_read = fread(stream->buf + offset, 1, file_len, f);
   if (n_read != file_len || ferror(f))
     Die("Error reading file: %s", path);
   offset += n_read;
-  return offset;
+  stream->pos = offset;
+  stream->len = stream->pos + file_len;
+}
+
+unsigned Read(Stream* s) {
+  if (s->pos == s->len)
+    Die("Read beyond end of file.");
+  return s->buf[s->pos++];
+}
+
+unsigned ReadUint16(Stream* s) {
+  unsigned lo = Read(s);
+  unsigned hi = Read(s);
+  return lo | (hi << 8);
 }
 
 void ConcatPath(

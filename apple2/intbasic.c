@@ -10,22 +10,8 @@
 #define LIST_TO_STDOUT 1
 
 static struct {
-  unsigned char file_buffer[FILE_BUFFER_SIZE];
-  unsigned file_buffer_pos;
-  unsigned file_len;
+  Stream src;
 } intbasic;
-
-unsigned Read() {
-  if (intbasic.file_buffer_pos == intbasic.file_len)
-    Die("Read beyond end of file.");
-  return intbasic.file_buffer[intbasic.file_buffer_pos++];
-}
-
-unsigned ReadUint16() {
-  unsigned lo = Read();
-  unsigned hi = Read();
-  return lo | (hi << 8);
-}
 
 char* TranslateChar(unsigned c) {
   // TODO: Check translation of string characters
@@ -47,27 +33,27 @@ void ListLine(int line_length, FILE* dst) {
   } else {
     target = dst;
   }
-  unsigned line_number = ReadUint16();
+  unsigned line_number = ReadUint16(&intbasic.src);
   fprintf(target, "%5d ", line_number);
-  unsigned line_start_pos = intbasic.file_buffer_pos; // save intbasic.file_buffer_pos
+  unsigned line_start_pos = intbasic.src.pos; // save intbasic.src.pos
   unsigned line_end_pos = line_start_pos + line_length - 3;
-  while (intbasic.file_buffer_pos < line_end_pos) {
-    unsigned pos = intbasic.file_buffer_pos - line_start_pos;
+  while (intbasic.src.pos < line_end_pos) {
+    unsigned pos = intbasic.src.pos - line_start_pos;
     if (pos > 0 && pos % 16 == 0)
       fprintf(target, "\n      ");
-    unsigned c = Read();
+    unsigned c = Read(&intbasic.src);
     fprintf(target, " %02X", c);
   }
   fprintf(target, "\n");
-  intbasic.file_buffer_pos = line_start_pos; // restore intbasic.file_buffer_pos
+  intbasic.src.pos = line_start_pos; // restore intbasic.src.pos
   fprintf(target, "%5d ", line_number);
-  while (intbasic.file_buffer_pos < line_end_pos) {
-    unsigned c = Read();
+  while (intbasic.src.pos < line_end_pos) {
+    unsigned c = Read(&intbasic.src);
     switch (c) {
 
       case 0x01: // end of line
-        if (intbasic.file_buffer_pos != line_end_pos)
-          Die("Premature end of line (i=%d,end=%d).", intbasic.file_buffer_pos, line_end_pos);
+        if (intbasic.src.pos != line_end_pos)
+          Die("Premature end of line (i=%d,end=%d).", intbasic.src.pos, line_end_pos);
         break;
       case 0x03: fprintf(target, ":"); break;
       case 0x09: fprintf(target, " DEL "); break;
@@ -96,7 +82,7 @@ void ListLine(int line_length, FILE* dst) {
       case 0x28: // open quote
         {
           fprintf(target, "\"");
-          while ((c = Read()) != 0x29) {
+          while ((c = Read(&intbasic.src)) != 0x29) {
             fprintf(target, TranslateChar(c));
           }
           fprintf(target, "\""); // 0x29: close quote
@@ -144,8 +130,8 @@ void ListLine(int line_length, FILE* dst) {
       case 0x5d:
         {
           fprintf(target, " REM ");
-          while (intbasic.file_buffer_pos < line_end_pos - 1) {
-            fprintf(target, TranslateChar(Read()));
+          while (intbasic.src.pos < line_end_pos - 1) {
+            fprintf(target, TranslateChar(Read(&intbasic.src)));
           }
           break;
         }
@@ -175,7 +161,7 @@ void ListLine(int line_length, FILE* dst) {
         {
           // number
           unsigned first_digit = c - 0xb0;
-          unsigned number_value = ReadUint16();
+          unsigned number_value = ReadUint16(&intbasic.src);
           char number_display[6];
           sprintf(number_display, "%d", number_value);
           fprintf(target, number_display);
@@ -183,7 +169,7 @@ void ListLine(int line_length, FILE* dst) {
             Die("Number's first digit '%c' doesn't match expected value '%c'"
                 " (line %d, byte $%02X)",
                 number_display[0], TranslateChar(c), line_number,
-                intbasic.file_buffer_pos-line_start_pos-3);
+                intbasic.src.pos-line_start_pos-3);
         }
         break;
       default:
@@ -195,12 +181,12 @@ void ListLine(int line_length, FILE* dst) {
               )
           {
             fprintf(target, "%c", c & 0x7F);
-            c = Read();
+            c = Read(&intbasic.src);
           }
-          intbasic.file_buffer_pos--; // put back the last char
+          intbasic.src.pos--; // put back the last char
         } else {
           Die("Unexpected Integer BASIC token $%02X (line %d, offset $%02X)",
-              c, line_number, intbasic.file_buffer_pos-line_start_pos-1);
+              c, line_number, intbasic.src.pos-line_start_pos-1);
         }
         break;
 
@@ -210,14 +196,14 @@ void ListLine(int line_length, FILE* dst) {
 }
 
 void ListProgram(const char* src_path, FILE* dst) {
-  intbasic.file_len = ReadFileWithLengthPrefix(
-        src_path, intbasic.file_buffer, sizeof(intbasic.file_buffer), 0);
-  intbasic.file_buffer_pos = 0;
-  ReadUint16(); // advance past length
-  while (intbasic.file_buffer_pos < intbasic.file_len) {
-    unsigned line_length = Read();
+  InitStream(&intbasic.src);
+  ReadFileWithLengthPrefix(src_path, &intbasic.src, 0);
+  intbasic.src.pos = 0;
+  ReadUint16(&intbasic.src); // advance past length
+  while (intbasic.src.pos < intbasic.src.len) {
+    unsigned line_length = Read(&intbasic.src);
     ListLine(line_length, dst);
-    // intbasic.file_buffer_pos += line_length;
+    // intbasic.src.pos += line_length;
   }
 }
 

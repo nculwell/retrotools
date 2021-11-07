@@ -36,8 +36,16 @@ struct Stream {
 };
 typedef struct Stream Stream;
 
+static inline void InitStream(Stream* s) {
+  s->cap = STREAM_BUFFER_SIZE;
+  s->pos = 0;
+  s->len = 0;
+}
+
 void Die_impl(const char* file, int line, const char* msg, ...) __attribute__((noreturn));
-void ReadFileWithKnownLength(const char* path, unsigned char* file_buffer, unsigned file_len);
-unsigned ReadFileWithLengthPrefix(const char* path, unsigned char* file_buffer, unsigned file_buffer_len, unsigned bytes_to_skip);
+void ReadFileWithKnownLength(const char* path, Stream* stream, unsigned file_len);
+void ReadFileWithLengthPrefix(const char* path, Stream* stream, unsigned bytes_to_skip);
+unsigned Read(Stream* s);
+unsigned ReadUint16(Stream* s);
 void ConcatPath(char* path, int path_len, const char* part1, const char* part2, char separator);
 
