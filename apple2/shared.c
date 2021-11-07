@@ -64,6 +64,7 @@ void ReadFileWithLengthPrefix(
     | ((unsigned)stream->buf[offset+1] << 8);
   //printf("File len bytes: %02X %02X\n", file_buffer[0], file_buffer[1]);
   offset += 2;
+  unsigned after_length_offset = offset;
   if (file_len > stream->cap)
     Die("File's indicated length (%d) too long for available buffer (%d): %s",
         file_len, stream->cap, path);
@@ -75,8 +76,8 @@ void ReadFileWithLengthPrefix(
   if (n_read != file_len || ferror(f))
     Die("Error reading file: %s", path);
   offset += n_read;
-  stream->pos = offset;
-  stream->len = stream->pos + file_len;
+  stream->pos = after_length_offset;
+  stream->len = after_length_offset + file_len;
 }
 
 unsigned Read(Stream* s) {

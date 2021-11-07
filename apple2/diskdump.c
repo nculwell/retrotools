@@ -113,7 +113,9 @@ typedef struct VtocSector VtocSector;
 
 void ListProgram(const char* src_path, FILE* dst);
 
-unsigned char dsk[DSK_SIZE];
+Stream dsk_stream;
+unsigned char* dsk;
+
 VtocSector* vtoc;
 DirectorySector* directory_sectors[SECTORS_PER_TRACK];
 int directory_sector_count = -1;
@@ -139,7 +141,9 @@ char TranslateFileType(const DirectoryEntry* de, bool* is_locked) {
 }
 
 void ReadDsk(const char* path) {
-  ReadFileWithKnownLength(path, dsk, DSK_SIZE);
+  InitStream(&dsk_stream);
+  ReadFileWithKnownLength(path, &dsk_stream, DSK_SIZE);
+  dsk = dsk_stream.buf;
 }
 
 void ScanDirectory() {
@@ -312,7 +316,7 @@ int main(int argc, char** argv) {
       );
   */
   PrintDirectory();
-  ExtractFiles("dump");
+  ExtractFiles("scratch");
   return 0;
 }
 

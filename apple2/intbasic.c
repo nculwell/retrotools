@@ -199,7 +199,8 @@ void ListProgram(const char* src_path, FILE* dst) {
   InitStream(&intbasic.src);
   ReadFileWithLengthPrefix(src_path, &intbasic.src, 0);
   intbasic.src.pos = 0;
-  ReadUint16(&intbasic.src); // advance past length
+  unsigned len = ReadUint16(&intbasic.src); // advance past length
+  printf("%d / %d\n", len, intbasic.src.len);
   while (intbasic.src.pos < intbasic.src.len) {
     unsigned line_length = Read(&intbasic.src);
     ListLine(line_length, dst);
