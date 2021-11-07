@@ -34,7 +34,7 @@ struct Stream {
   unsigned len;
   unsigned char buf[STREAM_BUFFER_SIZE];
 };
-typedef struct Stream;
+typedef struct Stream Stream;
 
 void Die_impl(const char* file, int line, const char* msg, ...) __attribute__((noreturn));
 void ReadFileWithKnownLength(const char* path, unsigned char* file_buffer, unsigned file_len);
