@@ -1,0 +1,20 @@
+#!/usr/bin/python3
+
+import sys
+
+first = True
+doc = ''
+for line in sys.stdin.readlines():
+    ln = line.strip()
+    if ln == '':
+        continue
+    elif line.startswith('     '):
+        doc += ' '
+    else:
+        if first:
+            first = False
+        else:
+            doc += '\n'
+    doc += ln
+print(doc)
+
