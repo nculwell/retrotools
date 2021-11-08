@@ -18,7 +18,7 @@
 #define PATH_LEN 1024
 #define SECTOR_SIZE 256
 
-#define LIST_BINARY 0
+#define LIST_BINARY 1
 #define LIST_TO_STDOUT 0
 
 #define STREAM_BUFFER_SIZE (DSK_SIZE)
