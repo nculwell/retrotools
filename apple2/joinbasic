@@ -9,10 +9,12 @@ for line in sys.stdin.readlines():
     if ln == '':
         continue
     elif line.startswith('     '):
-        doc += ' '
+        if first or not (doc[-1].isdigit() and ln[0].isdigit()):
+            doc += ' '
     else:
         if first:
             first = False
+            doc += ' '
         else:
             doc += '\n'
     doc += ln

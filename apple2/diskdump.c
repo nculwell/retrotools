@@ -266,18 +266,17 @@ void HexDump(const char* dst_path, const char* src_path) {
   binary_stream.pos = 0;
   unsigned load_address = ReadUint16(&binary_stream);
   fprintf(dst, "LOAD ADDRESS: %04x\n", load_address);
-  ReadUint16(&binary_stream); // advance past length
+  binary_stream.pos = 0; // reset stream to dump from the beginning
   //unsigned start_pos = binary_stream.pos;
   bool need_chars;
   unsigned offset;
   for (offset=0; binary_stream.pos < binary_stream.len; offset++) {
+    need_chars = true;
     if (offset % HEX_DUMP_LINE_BYTES == 0) {
       if (offset > 0) {
         HexDumpChars(dst,
-            binary_stream.buf + binary_stream.pos + offset - HEX_DUMP_LINE_BYTES);
+            binary_stream.buf + binary_stream.pos - HEX_DUMP_LINE_BYTES);
         need_chars = false;
-      } else {
-        need_chars = true;
       }
       fprintf(dst, "%08x: ", offset);
     }
@@ -287,9 +286,13 @@ void HexDump(const char* dst_path, const char* src_path) {
     unsigned byte = Read(&binary_stream);
     fprintf(dst, "%02x", byte);
   }
-  if (need_chars)
-    HexDumpChars(dst,
-        binary_stream.buf + binary_stream.pos - (offset % HEX_DUMP_LINE_BYTES));
+  if (need_chars) {
+    unsigned last_line_bytes = offset % HEX_DUMP_LINE_BYTES;
+    unsigned empty_bytes = HEX_DUMP_LINE_BYTES - last_line_bytes;
+    for (unsigned i=0; i < empty_bytes*2 + empty_bytes/2; i++)
+      putc(' ', dst);
+    HexDumpChars(dst, binary_stream.buf + binary_stream.pos - last_line_bytes);
+  }
   fclose(dst);
 }
 
