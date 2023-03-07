@@ -1,0 +1,7 @@
+[package]
+name = "rust6502"
+version = "0.1.0"
+authors = ["Nate C-K <nculwell@gmail.com>"]
+edition = "2018"
+
+[dependencies]
