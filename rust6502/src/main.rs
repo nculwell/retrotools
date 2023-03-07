@@ -2,11 +2,11 @@
 const RAM_SIZE: usize = 0x10000;
 
 //#[derive(Debug)]
-struct Memory {
+struct Mem {
     ram: [u8; RAM_SIZE],
 }
 
-impl Memory {
+impl Mem {
     // TODO: Handle special regions.
     pub fn read(&self, addr: u16) -> u8 {
         self.ram[addr as usize]
@@ -84,16 +84,21 @@ struct Cpu {
 }
 
 impl Cpu {
-    pub fn setFlag(&mut self, flag: Flag, set: bool) {
-        if (set) {
+    pub fn set_flag(&mut self, flag: Flag, set: bool) {
+        if set {
             self.reg.p |= flag as u8;
         } else {
             self.reg.p &= !(flag as u8);
         }
     }
-    pub fn getFlag(&self, flag: Flag) -> bool {
+    pub fn get_flag(&self, flag: Flag) -> bool {
         0 != (self.reg.p & (flag as u8))
     }
+}
+
+struct Computer {
+    cpu: Cpu,
+    mem: Mem,
 }
 
 fn main() {
