@@ -1,6 +1,18 @@
 
 const RAM_SIZE: usize = 0x10000;
 
+fn word(lo: u8, hi: u8) -> u16 {
+    (lo as u16) & ((hi as u16) << 8)
+}
+
+fn word_hi(w: u16) -> u8 {
+    w >> 8
+}
+
+fn word_lo(w: u16) -> u8 {
+    w & 0x00FF
+}
+
 //#[derive(Debug)]
 struct Mem {
     ram: [u8; RAM_SIZE],
@@ -13,6 +25,9 @@ impl Mem {
     }
     pub fn write(&mut self, addr: u16, val: u8) {
         self.ram[addr as usize] = val;
+    }
+    pub fn read_word(&self, addr: u16) -> u16 {
+        word(self.read(addr), self.read(addr + 1))
     }
 }
 
@@ -37,7 +52,7 @@ struct Registers {
     ic: usize, // instruction count
 }
 
-enum Instr {
+enum Instruction {
     ADC=1, AND, ASL, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BRK,
     BVC, BVS, CLC, CLD, CLI, CLV, CMP, CPX, CPY, DEC, DEX,
     DEY, EOR, INC, INX, INY, JMP, JSR, LDA, LDX, LDY, LSR,
