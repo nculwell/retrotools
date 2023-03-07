@@ -1,4 +1,10 @@
 
+mod shared;
+use shared::Flag;
+use shared::AddrMode;
+use shared::AddrModeFlags;
+
+// Set the N and Z flags.
 fn set_nz(cpu: &mut Cpu, byteValue: u8) {
     if byteValue == 0 {
         cpu.set_flag(Flag::Z, true);
@@ -10,16 +16,18 @@ fn set_nz(cpu: &mut Cpu, byteValue: u8) {
 }
 
 fn push(cpu: &mut Cpu, mem: &mut Mem, operand: u8) {
-    if (cpu.reg.s == 0)
+    if (cpu.reg.s == 0) {
         panic!("Stack overflow.");
+    }
     // traceStack(m, operand, '>');
     mem.write(0x100 + cpu.reg.s, operand);
     cpu.reg.s -= 1;
 }
 
 fn pull(cpu: &mut Cpu, mem: &Mem) {
-    if (cpu.reg.s == 0xFF)
+    if (cpu.reg.s == 0xFF) {
         panic!("Stack underflow.");
+    }
     cpu.reg.s += 1;
     let v = mem.read(0x100 + cpu.reg.s);
     // traceStack(m, operand, '>');
@@ -57,7 +65,7 @@ fn bitwise_rol(cpu: &mut Cpu, value: u8) -> u8 {
     cpu.set_flag(Flag::C, value & 0x80 != 0);
     value <<= 1;
     if carry_set_before {
-        value++; // set the low bit to 1
+        value += 1; // set the low bit to 1
     }
     set_nz(cpu, value);
     value
@@ -82,7 +90,7 @@ fn add(cpu: &mut Cpu, reg_val: u8, mem_val: u8, is_cmp: bool) {
     // instead of the two's complement. (The +1 from the carry flag is the
     // missing +1 to convert one's complement to two's complement.)
     if is_cmp || get_flag(m, FLAG_C) {
-        diff++; // CMP behaves like SBC with carry set.
+        diff += 1; // CMP behaves like SBC with carry set.
     }
     let b: u8 = diff; // Truncate to 8 bits.
     // All instructions set N, Z and C.
@@ -105,7 +113,7 @@ fn return_from_sub(cpu: &mut Cpu, mem: &Mem) {
     cpu.reg.pc = return_addr;
 }
 
-fn jump(cpu: &mut Cpu, mem: &mut Mem, addr: u16, bool far) {
+fn jump(cpu: &mut Cpu, mem: &mut Mem, addr: u16, far: bool) {
     // trace_set_pc(addr)
     // if (far && addr >= 0xF000) {
     //   emulateC64ROM(m, addr);
@@ -188,11 +196,11 @@ fn resolve_address(
 
 fn interp_immediate(
     cpu: &mut Cpu,
-    instruction: Instruction,
+    opcode: Opcode,
     operand: u8,
 )
 {
-    match instruction {
+    match opcode {
 
         // LOAD
 
@@ -214,19 +222,21 @@ fn interp_immediate(
         AND => { cpu.reg.a &= operand; set_nz(cpu, cpu.reg.a); }
         EOR => { cpu.reg.a ^= operand; set_nz(cpu, cpu.reg.a); }
 
+        // ILLEGAL OPCODE
+
         _ => panic!("Unexpected instruction.");
 
     }
 }
 
-fn interp_addr(
+fn interp_address(
     cpu: &mut Cpu,
     mem: &mut Mem,
-    instruction: Instruction,
+    opcode: Opcode,
     addr: u16,
 )
 {
-    match instruction {
+    match opcode {
 
         // JUMPS
 
@@ -261,7 +271,7 @@ fn interp_addr(
         STY => { store(mem, cpu.reg.y, addr); }
         BIT => { store(mem, cpu.reg.p, addr); } // TODO: brk flag
 
-        // INCREMENT / DECREMENT
+        // INCREMENT / DECREMENT (see also interp_implied)
 
         INC => { let v = store(mem, mem.read(addr) + 1, addr); set_nz(cpu, v); }
         DEC => { let v = store(mem, mem.read(addr) - 1, addr); set_nz(cpu, v); }
@@ -276,6 +286,136 @@ fn interp_addr(
         // The opcodes with immediate arguments can be applied to memory just
         // by loading the value from memory and using the same opcode.
         _ => interp_immediate(cpu, mem.read(addr));
+
+    }
+}
+
+fn interp_implied(
+    cpu: &mut Cpu,
+    mem: &mut Mem,
+    opcode: Opcode,
+)
+{
+    match opcode {
+
+        // RETURN
+
+        RTS => {
+            if cpu.reg.s > 0xFD {
+                panic!("Stack underflow in RTS.");
+            }
+            return_from_sub(cpu, mem);
+        }
+
+        // STACK
+
+        PHP => { push(cpu, mem, cpu.reg.p); }
+        PLP => { cpu.reg.p = pull(cpu, mem); }
+        PHA => { push(cpu, mem, cpu.reg.a); }
+        PLA => { cpu.reg.a = pull(cpu, mem); }
+
+        // FLAGS
+
+        CLC => { cpu.set_flag(Flag::C, false); }
+        SEC => { cpu.set_flag(Flag::C, true); }
+        CLV => { cpu.set_flag(Flag::V, false); }
+        CLD => { cpu.set_flag(Flag::D, false); }
+        SED => { cpu.set_flag(Flag::D, true); }
+        CLI => { cpu.set_flag(Flag::I, false); }
+        SEI => { cpu.set_flag(Flag::I, true); }
+
+        // INCREMENT / DECREMENT (see also interp_address)
+
+        INX => { let v = cpu.reg.x + 1; cpu.reg.x = v; set_nz(cpu, mem, v); }
+        DEX => { let v = cpu.reg.x - 1; cpu.reg.x = v; set_nz(cpu, mem, v); }
+        INY => { let v = cpu.reg.y + 1; cpu.reg.y = v; set_nz(cpu, mem, v); }
+        DEY => { let v = cpu.reg.y - 1; cpu.reg.y = v; set_nz(cpu, mem, v); }
+
+        // TRANSFER REGISTERS
+
+        TYA => { let v = cpu.reg.y; cpu.reg.a = v; set_nz(cpu, mem, v); }
+        TAY => { let v = cpu.reg.a; cpu.reg.y = v; set_nz(cpu, mem, v); }
+        TXA => { let v = cpu.reg.x; cpu.reg.a = v; set_nz(cpu, mem, v); }
+        TAX => { let v = cpu.reg.a; cpu.reg.x = v; set_nz(cpu, mem, v); }
+        TXS => { cpu.reg.s = cpu.reg.x; /* This instruction doesn't set N/Z */ }
+        TSX => { let v = cpu.reg.s; cpu.reg.x = v; set_nz(cpu, mem, v); }
+
+        // BIT SHIFTS
+
+        ASL => { cpu.reg.a = bitwise_asl(cpu, cpu.reg.a); }
+        LSR => { cpu.reg.a = bitwise_lsr(cpu, cpu.reg.a); }
+        ROL => { cpu.reg.a = bitwise_rol(cpu, cpu.reg.a); }
+        ROR => { cpu.reg.a = bitwise_ror(cpu, cpu.reg.a); }
+
+        // NO-OP
+
+        NOP => { }
+
+        // TODO: Currently not supporting these because I haven't implemented interrupts.
+
+        BRK | RTI => { panic!("Interrupt-related opcodes not supported."); }
+
+        // ILLEGAL OPCODE
+
+        _ => panic!("Unexpected instruction.");
+
+    }
+}
+
+fn interp(
+    cpu: &mut Cpu,
+    mem: &mut Mem,
+)
+{
+    // prepareHooks
+    while true {
+
+        // Read the opcode.
+        let opcode_addr = cpu.reg.pc;
+        let opcode_byte = mem.read(opcode_addr);
+        let opcode = match num::FromPrimitive::from_u8(opcode_byte) {
+            Some(oc) => oc,
+            None => panic!("Unknown opcode: {}", opcode_byte),
+        }
+
+        // Advance PC and increment the Instruction Counter.
+        cpu.reg.pc += 1;
+        cpu.reg.ic += 1;
+
+        // Decode the instruction.
+
+        let instr: Instruction = instruction_set[opcode];
+        if instr.instruction == 0 {
+            panic!("Illegal instruction: {:02X} (PC={:04X}, IC={:X})",
+            opcode_byte, opcode_addr, cpu.reg.ic);
+        }
+        admd_flags = addr_mode_info[instr.addressing_mode].flags;
+        let mut is_indirect: bool = false;
+        let mut operand: u16 = 0;
+        let mut raw_operand: u16 = -1 as u16;
+
+        if admd_flags & AddrModeFlags::Resolve {
+            (is_indirect, operand, raw_operand) =
+                resolve_address(cpu, mem, instr.addressing_mode, admd_flags);
+        } else {
+            if admd == AddrMode::Imm {
+                operand = mem.read(cpu.reg.pc);
+                cpu.reg.pc += 1;
+            } else {
+                assert!(admd == AddrMode::Impl);
+            }
+        }
+
+        // trace_instruction(cpu, mem,
+        //   opcode_addr, instr.instruction, admd, admdFlags, operand, rawOperand);
+
+        // Execute.
+
+        match admd {
+            AddrMode::Impl => { interp_implied(cpu, mem, opcode); }
+            AddrMode::Imm  => { interp_immediate(cpu, opcode, operand); }
+            _              => { interp_address(cpu, mem, opcode, operand); }
+        }
 
     }
 }
