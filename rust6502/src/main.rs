@@ -91,6 +91,9 @@ impl Cpu {
             self.reg.p &= !(flag as u8);
         }
     }
+    pub fn getFlag(&self, flag: Flag) -> bool {
+        0 != (self.reg.p & (flag as u8))
+    }
 }
 
 fn main() {
