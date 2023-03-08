@@ -29,10 +29,7 @@ pub fn init() -> Result<Sdl, String> {
         Ok(context) => context,
         Err(e) => { return Err(format!("SDL2 init: {}", e)); }
     };
-    let timer = match ctx.timer() {
-        Ok(timer) => timer,
-        Err(e) => { return Err(format!("SDL2 timer: {}", e)); }
-    };
+    let timer = sdl_init!(ctx, timer);
     let video = sdl_init!(ctx, video);
     let event = sdl_init!(ctx, event);
     let result =
