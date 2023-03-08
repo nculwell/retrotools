@@ -1,0 +1,46 @@
+
+pub trait Media {
+    fn draw(&self);
+}
+
+pub struct Sdl {
+    context: sdl2::Sdl,
+    timer: sdl2::TimerSubsystem,
+    video: sdl2::VideoSubsystem,
+    event: sdl2::EventSubsystem,
+}
+
+impl Media for Sdl {
+    fn draw(&self) {
+    }
+}
+
+macro_rules! sdl_init {
+    ( $subsystem:ident ) => {
+        match ctx.$subsystem() {
+            Ok(system) => system,
+            Err(e) => { return Err(format!("SDL2 {}: {}", stringify!($subsystem), e)); }
+        }
+    };
+}
+
+pub fn init() -> Result<&'static (dyn Media), String> {
+    let ctx = match sdl2::init() {
+        Ok(context) => context,
+        Err(e) => { return Err(format!("SDL2 init: {}", e)); }
+    };
+    let timer = match ctx.timer() {
+        Ok(timer) => timer,
+        Err(e) => { return Err(format!("SDL2 timer: {}", e)); }
+    };
+    let video = sdl_init!(video);
+    let event = sdl_init!(event);
+    let result = Sdl {
+        context: ctx,
+        timer: timer,
+        video: video,
+        event: event,
+    };
+    Ok(&result)
+}
+
