@@ -69,7 +69,7 @@ pub struct Registers {
 
 #[derive(Clone,Copy,FromPrimitive,PartialEq,Debug)]
 pub enum Opcode {
-    XXX=0,
+    ILLEGAL = 0,
     ADC, AND, ASL, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BRK,
     BVC, BVS, CLC, CLD, CLI, CLV, CMP, CPX, CPY, DEC, DEX,
     DEY, EOR, INC, INX, INY, JMP, JSR, LDA, LDX, LDY, LSR,
@@ -99,7 +99,7 @@ pub mod addr_mode_flag {
         let T(v2) = f2;
         (v1 & v2) != 0
     }
-    pub const None    : T = T(0);
+    pub const NoFlag  : T = T(0);
     pub const Resolve : T = T(1 << 0);
     //pub const TwoByte : T = T(1 << 1);
     pub const Ind     : T = T(1 << 2);
@@ -115,7 +115,7 @@ pub enum AddrMode {
 
   // treat A as implied
 
-  Xxx,  // none (illegal instruction)
+  Illegal,  // none (illegal instruction)
 
   Impl, // implied
   Imm,  // immediate

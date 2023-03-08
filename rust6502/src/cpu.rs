@@ -384,7 +384,7 @@ pub fn interp_one_instruction(
         // Decode the instruction.
 
         let instr: Instruction = instruction_lookup(opcode_byte);
-        if instr.opcode == XXX {
+        if instr.opcode == ILLEGAL {
             panic!("Illegal instruction: {:02X} (PC={:04X}, IC={:X})",
             opcode_byte, opcode_addr, cpu.reg.ic);
         }
