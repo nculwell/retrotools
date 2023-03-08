@@ -357,16 +357,13 @@ fn interp_implied(
     }
 }
 
-pub fn interp(
+pub fn interp_one_instruction(
     cpu: &mut Cpu,
     mem: &mut Mem,
 )
 {
 
     use crate::instructions::*;
-
-    // prepareHooks
-    loop {
 
         // Read the opcode.
         let opcode_addr = cpu.reg.pc;
@@ -418,6 +415,16 @@ pub fn interp(
             _              => { interp_address(cpu, mem, instr.opcode, operand); }
         }
 
+}
+
+pub fn interp(
+    cpu: &mut Cpu,
+    mem: &mut Mem,
+)
+{
+    // prepareHooks
+    loop {
+        interp_one_instruction(cpu, mem);
     }
 }
 
