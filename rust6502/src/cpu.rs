@@ -5,11 +5,11 @@ use crate::shared::Opcode::*;
 // Set the N and Z flags.
 fn set_nz(cpu: &mut Cpu, byte_value: u8) {
     if byte_value == 0 {
-        cpu.set_flag(Flag::Z, true);
-        cpu.set_flag(Flag::N, false);
+        cpu.set_flag(flag::Z, true);
+        cpu.set_flag(flag::N, false);
     } else {
-        cpu.set_flag(Flag::Z, false);
-        cpu.set_flag(Flag::N, 0 != (byte_value & 0x80));
+        cpu.set_flag(flag::Z, false);
+        cpu.set_flag(flag::N, 0 != (byte_value & 0x80));
     }
 }
 
@@ -45,22 +45,22 @@ fn store(mem: &mut Mem, addr: u16, value: u8) -> u8 {
 }
 
 fn bitwise_asl(cpu: &mut Cpu, value: u8) -> u8 {
-    cpu.set_flag(Flag::C, value & 0x80 != 0);
+    cpu.set_flag(flag::C, value & 0x80 != 0);
     let shifted = value << 1;
     set_nz(cpu, shifted);
     shifted
 }
 
 fn bitwise_lsr(cpu: &mut Cpu, value: u8) -> u8 {
-    cpu.set_flag(Flag::C, value & 1 != 0);
+    cpu.set_flag(flag::C, value & 1 != 0);
     let shifted = value >> 1;
     set_nz(cpu, shifted);
     shifted
 }
 
 fn bitwise_rol(cpu: &mut Cpu, value: u8) -> u8 {
-    let carry_set_before = cpu.get_flag(Flag::C);
-    cpu.set_flag(Flag::C, value & 0x80 != 0);
+    let carry_set_before = cpu.get_flag(flag::C);
+    cpu.set_flag(flag::C, value & 0x80 != 0);
     let mut shifted = value << 1;
     if carry_set_before {
         shifted += 1; // set the low bit to 1
@@ -70,8 +70,8 @@ fn bitwise_rol(cpu: &mut Cpu, value: u8) -> u8 {
 }
 
 fn bitwise_ror(cpu: &mut Cpu, value: u8) -> u8 {
-    let carry_set_before = cpu.get_flag(Flag::C);
-    cpu.set_flag(Flag::C, value & 1 != 0);
+    let carry_set_before = cpu.get_flag(flag::C);
+    cpu.set_flag(flag::C, value & 1 != 0);
     let mut shifted = value >> 1;
     if carry_set_before {
         shifted |= 0x80; // set the high bit to 1
@@ -87,17 +87,17 @@ fn add(cpu: &mut Cpu, reg_val: u8, mem_val: u8, is_cmp: bool) {
     // This works for subtraction because we're subtracting the one's complement
     // instead of the two's complement. (The +1 from the carry flag is the
     // missing +1 to convert one's complement to two's complement.)
-    if is_cmp || cpu.get_flag(Flag::C) {
+    if is_cmp || cpu.get_flag(flag::C) {
         diff += 1; // CMP behaves like SBC with carry set.
     }
     let b: u8 = diff as u8; // Truncate to 8 bits.
     // All instructions set N, Z and C.
     set_nz(cpu, b);
-    cpu.set_flag(Flag::C, diff & 0x100 != 0); // carry
+    cpu.set_flag(flag::C, diff & 0x100 != 0); // carry
     if !is_cmp {
         // ADC and SBC set A and V, but compare instructions don't.
         let overflow = 0 != ((reg_val ^ b) & (mem_val ^ b) & 0x80);
-        cpu.set_flag(Flag::V, overflow);
+        cpu.set_flag(flag::V, overflow);
         cpu.reg.a = b;
     }
 }
@@ -245,13 +245,13 @@ fn interp_address(
 
         // BRANCHES
 
-        BPL => { if !cpu.get_flag(Flag::N) { jump(cpu, mem, addr, false); } }
-        BMI => { if  cpu.get_flag(Flag::N) { jump(cpu, mem, addr, false); } }
-        BVS => { if  cpu.get_flag(Flag::V) { jump(cpu, mem, addr, false); } }
-        BCC => { if !cpu.get_flag(Flag::C) { jump(cpu, mem, addr, false); } }
-        BCS => { if  cpu.get_flag(Flag::C) { jump(cpu, mem, addr, false); } }
-        BNE => { if !cpu.get_flag(Flag::Z) { jump(cpu, mem, addr, false); } }
-        BEQ => { if  cpu.get_flag(Flag::Z) { jump(cpu, mem, addr, false); } }
+        BPL => { if !cpu.get_flag(flag::N) { jump(cpu, mem, addr, false); } }
+        BMI => { if  cpu.get_flag(flag::N) { jump(cpu, mem, addr, false); } }
+        BVS => { if  cpu.get_flag(flag::V) { jump(cpu, mem, addr, false); } }
+        BCC => { if !cpu.get_flag(flag::C) { jump(cpu, mem, addr, false); } }
+        BCS => { if  cpu.get_flag(flag::C) { jump(cpu, mem, addr, false); } }
+        BNE => { if !cpu.get_flag(flag::Z) { jump(cpu, mem, addr, false); } }
+        BEQ => { if  cpu.get_flag(flag::Z) { jump(cpu, mem, addr, false); } }
 
         // LOAD
 
@@ -311,13 +311,13 @@ fn interp_implied(
 
         // FLAGS
 
-        CLC => { cpu.set_flag(Flag::C, false); }
-        SEC => { cpu.set_flag(Flag::C, true); }
-        CLV => { cpu.set_flag(Flag::V, false); }
-        CLD => { cpu.set_flag(Flag::D, false); }
-        SED => { cpu.set_flag(Flag::D, true); }
-        CLI => { cpu.set_flag(Flag::I, false); }
-        SEI => { cpu.set_flag(Flag::I, true); }
+        CLC => { cpu.set_flag(flag::C, false); }
+        SEC => { cpu.set_flag(flag::C, true); }
+        CLV => { cpu.set_flag(flag::V, false); }
+        CLD => { cpu.set_flag(flag::D, false); }
+        SED => { cpu.set_flag(flag::D, true); }
+        CLI => { cpu.set_flag(flag::I, false); }
+        SEI => { cpu.set_flag(flag::I, true); }
 
         // INCREMENT / DECREMENT (see also interp_address)
 

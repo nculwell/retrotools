@@ -8,13 +8,14 @@ mod sdl;
 
 use crate::shared::{Mem, Cpu};
 
+#[allow(unused)]
 fn main() {
     let mut mem = Mem::new();
     let start_addr = mem.read_word(0xFFFC); // reset vector
     let mut cpu = Cpu::new(start_addr);
     let sdl = match sdl::init() {
         Ok(sdl) => sdl,
-        Err(e) => { panic!(e) }
+        Err(e) => { panic!("Failed to init SDL. {}", e) }
     };
     cpu::interp(&mut cpu, &mut mem);
 }

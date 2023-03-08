@@ -38,7 +38,7 @@ impl Mem {
     }
 }
 
-pub mod Flag {
+pub mod flag {
 #[derive(PartialEq, Debug, Clone, Copy)]
     pub struct T(pub u8);
     impl std::ops::BitAnd for T {
@@ -78,6 +78,7 @@ pub enum Opcode {
     TYA,
 }
 
+#[allow(non_upper_case_globals)]
 pub mod AddrModeFlag {
 #[derive(PartialEq, Debug, Clone, Copy)]
     pub struct T(pub u8);
@@ -147,16 +148,16 @@ impl Cpu {
         };
         Cpu { reg: reg }
     }
-    pub fn set_flag(&mut self, flag: Flag::T, set: bool) {
-        let Flag::T(flag_value) = flag;
+    pub fn set_flag(&mut self, flag: flag::T, set: bool) {
+        let flag::T(flag_value) = flag;
         if set {
             self.reg.p |= flag_value;
         } else {
             self.reg.p &= !(flag_value);
         }
     }
-    pub fn get_flag(&self, flag: Flag::T) -> bool {
-        let Flag::T(flag_value) = flag;
+    pub fn get_flag(&self, flag: flag::T) -> bool {
+        let flag::T(flag_value) = flag;
         0 != (self.reg.p & (flag_value))
     }
 }
