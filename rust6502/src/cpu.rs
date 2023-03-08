@@ -1,35 +1,33 @@
 
-mod shared;
-use shared::Flag;
-use shared::AddrMode;
-use shared::AddrModeFlags;
+use crate::shared::*;
+use crate::shared::Opcode::*;
 
 // Set the N and Z flags.
-fn set_nz(cpu: &mut Cpu, byteValue: u8) {
-    if byteValue == 0 {
+fn set_nz(cpu: &mut Cpu, byte_value: u8) {
+    if byte_value == 0 {
         cpu.set_flag(Flag::Z, true);
         cpu.set_flag(Flag::N, false);
     } else {
-        set_flag(Flag::Z, false);
-        set_flag(Flag::N, byteValue & 0x80);
+        cpu.set_flag(Flag::Z, false);
+        cpu.set_flag(Flag::N, 0 != (byte_value & 0x80));
     }
 }
 
 fn push(cpu: &mut Cpu, mem: &mut Mem, operand: u8) {
-    if (cpu.reg.s == 0) {
+    if cpu.reg.s == 0 {
         panic!("Stack overflow.");
     }
     // traceStack(m, operand, '>');
-    mem.write(0x100 + cpu.reg.s, operand);
+    mem.write(0x100 + (cpu.reg.s as u16), operand);
     cpu.reg.s -= 1;
 }
 
-fn pull(cpu: &mut Cpu, mem: &Mem) {
-    if (cpu.reg.s == 0xFF) {
+fn pull(cpu: &mut Cpu, mem: &Mem) -> u8 {
+    if cpu.reg.s == 0xFF {
         panic!("Stack underflow.");
     }
     cpu.reg.s += 1;
-    let v = mem.read(0x100 + cpu.reg.s);
+    let v = mem.read(0x100 + (cpu.reg.s as u16));
     // traceStack(m, operand, '>');
     v
 }
@@ -48,51 +46,51 @@ fn store(mem: &mut Mem, addr: u16, value: u8) -> u8 {
 
 fn bitwise_asl(cpu: &mut Cpu, value: u8) -> u8 {
     cpu.set_flag(Flag::C, value & 0x80 != 0);
-    value <<= 1;
-    set_nz(cpu, value);
-    value
+    let shifted = value << 1;
+    set_nz(cpu, shifted);
+    shifted
 }
 
 fn bitwise_lsr(cpu: &mut Cpu, value: u8) -> u8 {
     cpu.set_flag(Flag::C, value & 1 != 0);
-    value >>= 1;
-    set_nz(cpu, value);
-    value
+    let shifted = value >> 1;
+    set_nz(cpu, shifted);
+    shifted
 }
 
 fn bitwise_rol(cpu: &mut Cpu, value: u8) -> u8 {
-    let carry_set_before = cpu.get_flag(cpu, Flag::C);
+    let carry_set_before = cpu.get_flag(Flag::C);
     cpu.set_flag(Flag::C, value & 0x80 != 0);
-    value <<= 1;
+    let mut shifted = value << 1;
     if carry_set_before {
-        value += 1; // set the low bit to 1
+        shifted += 1; // set the low bit to 1
     }
-    set_nz(cpu, value);
-    value
+    set_nz(cpu, shifted);
+    shifted
 }
 
 fn bitwise_ror(cpu: &mut Cpu, value: u8) -> u8 {
-    let carry_set_before = cpu.get_flag(cpu, Flag::C);
+    let carry_set_before = cpu.get_flag(Flag::C);
     cpu.set_flag(Flag::C, value & 1 != 0);
-    value >>= 1;
+    let mut shifted = value >> 1;
     if carry_set_before {
-        value |= 0x80; // set the high bit to 1
+        shifted |= 0x80; // set the high bit to 1
     }
-    set_nz(cpu, value);
-    value
+    set_nz(cpu, shifted);
+    shifted
 }
 
 // Implements ADC, SBC, CMP, CPX, CPY.
 fn add(cpu: &mut Cpu, reg_val: u8, mem_val: u8, is_cmp: bool) {
-    let diff: u16 = reg_val + mem_val;
+    let mut diff: u16 = (reg_val as u16) + (mem_val as u16);
     // The carry flag always means +1 here.
     // This works for subtraction because we're subtracting the one's complement
     // instead of the two's complement. (The +1 from the carry flag is the
     // missing +1 to convert one's complement to two's complement.)
-    if is_cmp || get_flag(m, FLAG_C) {
+    if is_cmp || cpu.get_flag(Flag::C) {
         diff += 1; // CMP behaves like SBC with carry set.
     }
-    let b: u8 = diff; // Truncate to 8 bits.
+    let b: u8 = diff as u8; // Truncate to 8 bits.
     // All instructions set N, Z and C.
     set_nz(cpu, b);
     cpu.set_flag(Flag::C, diff & 0x100 != 0); // carry
@@ -113,7 +111,7 @@ fn return_from_sub(cpu: &mut Cpu, mem: &Mem) {
     cpu.reg.pc = return_addr;
 }
 
-fn jump(cpu: &mut Cpu, mem: &mut Mem, addr: u16, far: bool) {
+fn jump(cpu: &mut Cpu, _mem: &mut Mem, addr: u16, far: bool) {
     // trace_set_pc(addr)
     // if (far && addr >= 0xF000) {
     //   emulateC64ROM(m, addr);
@@ -130,42 +128,42 @@ fn deref(mem: &Mem, pointer: u16) -> u16 {
 }
 
 fn resolve_address(
-    cpu: &Cpu,
+    cpu: &mut Cpu,
     mem: &Mem,
     admd: AddrMode,
-    admd_flags: AddrModeFlags,
+    admd_flags: AddrModeFlag::T,
 ) -> (bool, u16, u16)
 {
     let mut is_indirect = false;
     let mut raw_addr: u16 = 0;
     let mut eff_addr: u16 = 0;
-    let mut addr: u16 = mem.read(cpu.reg.pc);
+    let mut addr: u16 = mem.read(cpu.reg.pc) as u16;
     cpu.reg.pc += 1;
-    if admd_flags & AddrModeFlag::Abs {
+    if AddrModeFlag::is_set(admd_flags, AddrModeFlag::Abs) {
         // Read second byte.
-        addr |= mem.read(cpu.reg.pc) << 8;
+        addr |= (mem.read(cpu.reg.pc) as u16) << 8;
         cpu.reg.pc += 1;
         raw_addr = addr;
         // absolute
         if admd == AddrMode::AbsX {
-            addr += cpu.reg.x;
+            addr += cpu.reg.x as u16;
         } else if admd == AddrMode::AbsY {
-            addr += cpu.reg.y;
+            addr += cpu.reg.y as u16;
         } else {
             assert!(admd == AddrMode::Abs);
         }
     } else {
-        if admd_flags & AddrModeFlag::Ind {
+        if AddrModeFlag::is_set(admd_flags, AddrModeFlag::Ind) {
             // indirect
             if admd == AddrMode::XInd {
-                addr = mem.read_word(addr + cpu.reg.x);
+                addr = mem.read_word(addr + cpu.reg.x as u16);
             } else {
                 if admd == AddrMode::IndY {
                     addr = mem.read_word(addr);
-                    addr += cpu.reg.y;
+                    addr += cpu.reg.y as u16;
                 } else {
                     assert!(admd == AddrMode::Ind);
-                    addr |= mem.read(cpu.reg.pc) << 8;
+                    addr |= (mem.read(cpu.reg.pc) as u16) << 8;
                     cpu.reg.pc += 1;
                     raw_addr = addr;
                     addr = mem.read_word(addr);
@@ -174,17 +172,14 @@ fn resolve_address(
             is_indirect = true;
         } else if admd == AddrMode::Rel {
             // relative: operand is a signed offset
-            addr = cpu.reg.pc + (addr as i8);
+            addr = ((cpu.reg.pc as i32) + ((addr as i8) as i32)) as u16;
         } else {
             // zero page
-            if 0 == (admd_flags & AddrModeFlags::Zpg) {
-                // fprintf(stderr, "%s\n", addrModeInfo[admd].name);
-            }
-            assert!(0 != admd_flags & AddrModeFlags::Zpg);
+            assert!(AddrModeFlag::is_set(admd_flags, AddrModeFlag::Zpg));
             if admd == AddrMode::ZpgX {
-                addr += cpu.reg.x;
+                addr += cpu.reg.x as u16;
             } else if admd == AddrMode::ZpgY {
-                addr += cpu.reg.y;
+                addr += cpu.reg.y as u16;
             } else {
                 assert!(admd == AddrMode::Zpg);
             }
@@ -206,14 +201,14 @@ fn interp_immediate(
 
         LDA => { cpu.reg.a = operand; set_nz(cpu, operand); }
         LDX => { cpu.reg.x = operand; set_nz(cpu, operand); }
-        LDA => { cpu.reg.y = operand; set_nz(cpu, operand); }
+        LDY => { cpu.reg.y = operand; set_nz(cpu, operand); }
 
         // ADD / SUB
 
         ADC => { add(cpu, cpu.reg.a, operand, false); }
         SBC => { add(cpu, cpu.reg.a, !operand, false); }
         CMP => { add(cpu, cpu.reg.a, !operand, true); }
-        CPY => { add(cpu, cpu.reg.x, !operand, true); }
+        CPX => { add(cpu, cpu.reg.x, !operand, true); }
         CPY => { add(cpu, cpu.reg.y, !operand, true); }
 
         // BITWISE
@@ -224,7 +219,7 @@ fn interp_immediate(
 
         // ILLEGAL OPCODE
 
-        _ => panic!("Unexpected instruction.");
+        _ => { panic!("Unexpected instruction."); }
 
     }
 }
@@ -244,9 +239,9 @@ fn interp_address(
             let push_addr = cpu.reg.pc - 1; // JSR pushes return addr - 1
             push(cpu, mem, word_hi(push_addr));
             push(cpu, mem, word_lo(push_addr));
-            jump(cpu, mem, true);
+            jump(cpu, mem, addr, true);
         }
-        JMP => { jump(cpu, mem, true); }
+        JMP => { jump(cpu, mem, addr, true); }
 
         // BRANCHES
 
@@ -266,15 +261,15 @@ fn interp_address(
 
         // STORE
 
-        STA => { store(mem, cpu.reg.a, addr); }
-        STX => { store(mem, cpu.reg.x, addr); }
-        STY => { store(mem, cpu.reg.y, addr); }
-        BIT => { store(mem, cpu.reg.p, addr); } // TODO: brk flag
+        STA => { store(mem, addr, cpu.reg.a); }
+        STX => { store(mem, addr, cpu.reg.x); }
+        STY => { store(mem, addr, cpu.reg.y); }
+        BIT => { store(mem, addr, cpu.reg.p); } // TODO: brk flag
 
         // INCREMENT / DECREMENT (see also interp_implied)
 
-        INC => { let v = store(mem, mem.read(addr) + 1, addr); set_nz(cpu, v); }
-        DEC => { let v = store(mem, mem.read(addr) - 1, addr); set_nz(cpu, v); }
+        INC => { let v = store(mem, addr, mem.read(addr) + 1); set_nz(cpu, v); }
+        DEC => { let v = store(mem, addr, mem.read(addr) - 1); set_nz(cpu, v); }
 
         // BIT SHIFTS
 
@@ -285,7 +280,7 @@ fn interp_address(
 
         // The opcodes with immediate arguments can be applied to memory just
         // by loading the value from memory and using the same opcode.
-        _ => interp_immediate(cpu, mem.read(addr));
+        _ => { interp_immediate(cpu, opcode, mem.read(addr)); }
 
     }
 }
@@ -326,19 +321,19 @@ fn interp_implied(
 
         // INCREMENT / DECREMENT (see also interp_address)
 
-        INX => { let v = cpu.reg.x + 1; cpu.reg.x = v; set_nz(cpu, mem, v); }
-        DEX => { let v = cpu.reg.x - 1; cpu.reg.x = v; set_nz(cpu, mem, v); }
-        INY => { let v = cpu.reg.y + 1; cpu.reg.y = v; set_nz(cpu, mem, v); }
-        DEY => { let v = cpu.reg.y - 1; cpu.reg.y = v; set_nz(cpu, mem, v); }
+        INX => { let v = cpu.reg.x + 1; cpu.reg.x = v; set_nz(cpu, v); }
+        DEX => { let v = cpu.reg.x - 1; cpu.reg.x = v; set_nz(cpu, v); }
+        INY => { let v = cpu.reg.y + 1; cpu.reg.y = v; set_nz(cpu, v); }
+        DEY => { let v = cpu.reg.y - 1; cpu.reg.y = v; set_nz(cpu, v); }
 
         // TRANSFER REGISTERS
 
-        TYA => { let v = cpu.reg.y; cpu.reg.a = v; set_nz(cpu, mem, v); }
-        TAY => { let v = cpu.reg.a; cpu.reg.y = v; set_nz(cpu, mem, v); }
-        TXA => { let v = cpu.reg.x; cpu.reg.a = v; set_nz(cpu, mem, v); }
-        TAX => { let v = cpu.reg.a; cpu.reg.x = v; set_nz(cpu, mem, v); }
+        TYA => { let v = cpu.reg.y; cpu.reg.a = v; set_nz(cpu, v); }
+        TAY => { let v = cpu.reg.a; cpu.reg.y = v; set_nz(cpu, v); }
+        TXA => { let v = cpu.reg.x; cpu.reg.a = v; set_nz(cpu, v); }
+        TAX => { let v = cpu.reg.a; cpu.reg.x = v; set_nz(cpu, v); }
         TXS => { cpu.reg.s = cpu.reg.x; /* This instruction doesn't set N/Z */ }
-        TSX => { let v = cpu.reg.s; cpu.reg.x = v; set_nz(cpu, mem, v); }
+        TSX => { let v = cpu.reg.s; cpu.reg.x = v; set_nz(cpu, v); }
 
         // BIT SHIFTS
 
@@ -357,26 +352,32 @@ fn interp_implied(
 
         // ILLEGAL OPCODE
 
-        _ => panic!("Unexpected instruction.");
+        _ => { panic!("Unexpected instruction."); }
 
     }
 }
 
-fn interp(
+pub fn interp(
     cpu: &mut Cpu,
     mem: &mut Mem,
 )
 {
+
+    use crate::instructions::*;
+
     // prepareHooks
-    while true {
+    loop {
 
         // Read the opcode.
         let opcode_addr = cpu.reg.pc;
         let opcode_byte = mem.read(opcode_addr);
+
+        /*
         let opcode = match num::FromPrimitive::from_u8(opcode_byte) {
             Some(oc) => oc,
             None => panic!("Unknown opcode: {}", opcode_byte),
-        }
+        };
+        */
 
         // Advance PC and increment the Instruction Counter.
         cpu.reg.pc += 1;
@@ -384,25 +385,25 @@ fn interp(
 
         // Decode the instruction.
 
-        let instr: Instruction = instruction_set[opcode];
-        if instr.instruction == 0 {
+        let instr: Instruction = instruction_lookup(opcode_byte);
+        if instr.opcode == XXX {
             panic!("Illegal instruction: {:02X} (PC={:04X}, IC={:X})",
             opcode_byte, opcode_addr, cpu.reg.ic);
         }
-        admd_flags = addr_mode_info[instr.addressing_mode].flags;
+        let admd_flags = lookup_addr_mode_flags(instr.addr_mode);
         let mut is_indirect: bool = false;
         let mut operand: u16 = 0;
-        let mut raw_operand: u16 = -1 as u16;
+        let mut raw_operand: u16 = u16::MAX;
 
-        if admd_flags & AddrModeFlags::Resolve {
+        if AddrModeFlag::is_set(admd_flags, AddrModeFlag::Resolve) {
             (is_indirect, operand, raw_operand) =
-                resolve_address(cpu, mem, instr.addressing_mode, admd_flags);
+                resolve_address(cpu, mem, instr.addr_mode, admd_flags);
         } else {
-            if admd == AddrMode::Imm {
-                operand = mem.read(cpu.reg.pc);
+            if instr.addr_mode == AddrMode::Imm {
+                operand = mem.read(cpu.reg.pc) as u16;
                 cpu.reg.pc += 1;
             } else {
-                assert!(admd == AddrMode::Impl);
+                assert!(instr.addr_mode == AddrMode::Impl);
             }
         }
 
@@ -411,10 +412,10 @@ fn interp(
 
         // Execute.
 
-        match admd {
-            AddrMode::Impl => { interp_implied(cpu, mem, opcode); }
-            AddrMode::Imm  => { interp_immediate(cpu, opcode, operand); }
-            _              => { interp_address(cpu, mem, opcode, operand); }
+        match instr.addr_mode {
+            AddrMode::Impl => { interp_implied(cpu, mem, instr.opcode); }
+            AddrMode::Imm  => { interp_immediate(cpu, instr.opcode, operand as u8); }
+            _              => { interp_address(cpu, mem, instr.opcode, operand); }
         }
 
     }

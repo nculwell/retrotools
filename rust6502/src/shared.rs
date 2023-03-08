@@ -1,28 +1,32 @@
 
-#[macro_use]
-extern crate bitflags;
+use num_derive::FromPrimitive;    
+//use num_traits::FromPrimitive;
+use std::convert::TryInto;
 
 const RAM_SIZE: usize = 0x10000;
 
-fn word(lo: u8, hi: u8) -> u16 {
+pub fn word(lo: u8, hi: u8) -> u16 {
     (lo as u16) & ((hi as u16) << 8)
 }
 
-fn word_hi(w: u16) -> u8 {
-    w >> 8
+pub fn word_hi(w: u16) -> u8 {
+    (w >> 8).try_into().unwrap()
 }
 
-fn word_lo(w: u16) -> u8 {
-    w & 0x00FF
+pub fn word_lo(w: u16) -> u8 {
+    (w & 0x00FF).try_into().unwrap()
 }
 
 //#[derive(Debug)]
-struct Mem {
+pub struct Mem {
     ram: [u8; RAM_SIZE],
 }
 
 impl Mem {
     // TODO: Handle special regions.
+    pub fn new() -> Mem {
+        Mem { ram: [0; RAM_SIZE] }
+    }
     pub fn read(&self, addr: u16) -> u8 {
         self.ram[addr as usize]
     }
@@ -34,33 +38,39 @@ impl Mem {
     }
 }
 
-
-struct Flag(u8);
-
 pub mod Flag {
-    pub const N: Flag = Flag(0x80); // negative
-    pub const V: Flag = Flag(0x40); // overflow
+#[derive(PartialEq, Debug, Clone, Copy)]
+    pub struct T(pub u8);
+    impl std::ops::BitAnd for T {
+	type Output = Self;
+	fn bitand(self, rhs: Self) -> Self::Output {
+	    Self(self.0 & rhs.0)
+	}
+    }
+    pub const N: T = T(0x80); // negative
+    pub const V: T = T(0x40); // overflow
     // bit 5 ignored
-    pub const B: Flag = Flag(0x10); // break (fake flag, only appears when flags saved in RAM)
-    pub const D: Flag = Flag(0x08); // decimal
-    pub const I: Flag = Flag(0x04); // interrupt
-    pub const Z: Flag = Flag(0x02); // zero
-    pub const C: Flag = Flag(0x01); // carry
+    pub const B: T = T(0x10); // break (fake flag, only appears when flags saved in RAM)
+    pub const D: T = T(0x08); // decimal
+    pub const I: T = T(0x04); // interrupt
+    pub const Z: T = T(0x02); // zero
+    pub const C: T = T(0x01); // carry
 }
 
-struct Registers {
-    a: u8,
-    x: u8,
-    y: u8,
-    p: u8, // flags register
-    s: u16, // stack pointer
-    pc: u16, // program counter
-    ic: usize, // instruction count
+pub struct Registers {
+    pub a: u8,
+    pub x: u8,
+    pub y: u8,
+    pub p: u8, // flags register
+    pub s: u8, // stack pointer
+    pub pc: u16, // program counter
+    pub ic: usize, // instruction count
 }
 
-#[derive(Clone,Copy)]
-enum Opcode {
-    ADC=1, AND, ASL, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BRK,
+#[derive(Clone,Copy,FromPrimitive,PartialEq,Debug)]
+pub enum Opcode {
+    XXX=0,
+    ADC, AND, ASL, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BRK,
     BVC, BVS, CLC, CLD, CLI, CLV, CMP, CPX, CPY, DEC, DEX,
     DEY, EOR, INC, INX, INY, JMP, JSR, LDA, LDX, LDY, LSR,
     NOP, ORA, PHA, PHP, PLA, PLP, ROL, ROR, RTI, RTS, SBC,
@@ -69,63 +79,90 @@ enum Opcode {
 }
 
 pub mod AddrModeFlag {
-    pub const Resolve : u8 = 1 << 0;
-    //pub const TwoByte : u8 = 1 << 1;
-    pub const Ind     : u8 = 1 << 2;
-    pub const Abs     : u8 = 1 << 3;
-    pub const Zpg     : u8 = 1 << 4;
-    pub const X       : u8 = 1 << 5;
-    pub const Y       : u8 = 1 << 6;
-    pub const NoIndex : u8 = 1 << 7;
+#[derive(PartialEq, Debug, Clone, Copy)]
+    pub struct T(pub u8);
+    impl std::ops::BitAnd for T {
+	type Output = Self;
+	fn bitand(self, rhs: Self) -> Self::Output {
+	    Self(self.0 & rhs.0)
+	}
+    }
+    pub fn combine(f1: T, f2: T, f3: T) -> T {
+        let T(v1) = f1;
+        let T(v2) = f2;
+        let T(v3) = f3;
+        T(v1 | v2 | v3)
+    }
+    pub fn is_set(f1: T, f2: T) -> bool {
+        let T(v1) = f1;
+        let T(v2) = f2;
+        (v1 & v2) != 0
+    }
+    pub const None    : T = T(0);
+    pub const Resolve : T = T(1 << 0);
+    //pub const TwoByte : T = T(1 << 1);
+    pub const Ind     : T = T(1 << 2);
+    pub const Abs     : T = T(1 << 3);
+    pub const Zpg     : T = T(1 << 4);
+    pub const X       : T = T(1 << 5);
+    pub const Y       : T = T(1 << 6);
+    pub const NoIndex : T = T(1 << 7);
 }
 
-#[derive(Clone,Copy)]
-enum AddrMode {
+#[derive(Clone,Copy,PartialEq,Debug)]
+pub enum AddrMode {
 
   // treat A as implied
 
-  Impl = 0x00, // implied
-  Imm  = 0x01, // immediate
+  Xxx,  // none (illegal instruction)
 
-  Zpg  = 0x03,
-  ZpgX = 0x04,
-  ZpgY = 0x05,
+  Impl, // implied
+  Imm,  // immediate
 
-  Rel  = 0x06,
+  Zpg,
+  ZpgX,
+  ZpgY,
 
-  Abs  = 0x07,
-  AbsX = 0x08,
-  AbsY = 0x09,
+  Rel,
 
-  Ind  = 0x0A,
-  XInd = 0x0B,
-  IndY = 0x0C,
+  Abs,
+  AbsX,
+  AbsY,
+
+  Ind,
+  XInd,
+  IndY,
 
 }
 
-struct Cpu {
-    reg: Registers,
+pub struct Cpu {
+    pub reg: Registers,
 }
 
 impl Cpu {
-    pub fn set_flag(&mut self, flag: Flag, set: bool) {
+    pub fn new(start_addr: u16) -> Cpu {
+        let reg = Registers {
+            a: 0, x: 0, y: 0, p: 0, s: 0xFF,
+            pc: start_addr, ic: 0
+        };
+        Cpu { reg: reg }
+    }
+    pub fn set_flag(&mut self, flag: Flag::T, set: bool) {
+        let Flag::T(flag_value) = flag;
         if set {
-            self.reg.p |= flag as u8;
+            self.reg.p |= flag_value;
         } else {
-            self.reg.p &= !(flag as u8);
+            self.reg.p &= !(flag_value);
         }
     }
-    pub fn get_flag(&self, flag: Flag) -> bool {
-        0 != (self.reg.p & (flag as u8))
+    pub fn get_flag(&self, flag: Flag::T) -> bool {
+        let Flag::T(flag_value) = flag;
+        0 != (self.reg.p & (flag_value))
     }
 }
 
-struct Computer {
-    cpu: Cpu,
-    mem: Mem,
-}
-
-fn main() {
-    println!("Hello, world!");
+pub struct Computer {
+    pub cpu: Cpu,
+    pub mem: Mem,
 }
 
