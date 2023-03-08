@@ -16,8 +16,8 @@ impl Media for Sdl {
 }
 
 macro_rules! sdl_init {
-    ( $subsystem:ident ) => {
-        match ctx.$subsystem() {
+    ( $sdl_context:ident, $subsystem:ident ) => {
+        match $sdl_context.$subsystem() {
             Ok(system) => system,
             Err(e) => { return Err(format!("SDL2 {}: {}", stringify!($subsystem), e)); }
         }
@@ -33,14 +33,16 @@ pub fn init() -> Result<&'static (dyn Media), String> {
         Ok(timer) => timer,
         Err(e) => { return Err(format!("SDL2 timer: {}", e)); }
     };
-    let video = sdl_init!(video);
-    let event = sdl_init!(event);
-    let result = Sdl {
-        context: ctx,
-        timer: timer,
-        video: video,
-        event: event,
-    };
-    Ok(&result)
+    let video = sdl_init!(ctx, video);
+    let event = sdl_init!(ctx, event);
+    let result =
+        Sdl {
+            context: ctx,
+            timer: timer,
+            video: video,
+            event: event,
+        }
+    ;
+    Ok(result)
 }
 
