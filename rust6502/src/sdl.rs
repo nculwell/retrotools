@@ -24,7 +24,7 @@ macro_rules! sdl_init {
     };
 }
 
-pub fn init() -> Result<&'static (dyn Media), String> {
+pub fn init() -> Result<Sdl, String> {
     let ctx = match sdl2::init() {
         Ok(context) => context,
         Err(e) => { return Err(format!("SDL2 init: {}", e)); }
