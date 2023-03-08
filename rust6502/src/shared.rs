@@ -79,7 +79,7 @@ pub enum Opcode {
 }
 
 #[allow(non_upper_case_globals)]
-pub mod AddrModeFlag {
+pub mod addr_mode_flag {
 #[derive(PartialEq, Debug, Clone, Copy)]
     pub struct T(pub u8);
     impl std::ops::BitAnd for T {

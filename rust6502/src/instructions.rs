@@ -1,8 +1,7 @@
 
-use crate::shared::{AddrMode, AddrModeFlag, Opcode};
+use crate::shared::{AddrMode, Opcode};
 use crate::shared::AddrMode::*;
 use crate::shared::Opcode::*;
-use crate::shared::{AddrModeFlag as AMF};
 
 pub struct Instruction {
     pub opcode: Opcode,
@@ -277,27 +276,29 @@ pub fn instruction_lookup(opcode_byte: u8) -> Instruction {
     Instruction { opcode: opcode, addr_mode: addr_mode }
 }
 
-pub fn lookup_addr_mode_flags(mode: AddrMode) -> AddrModeFlag::T {
+use crate::shared::addr_mode_flag as amf;
+
+pub fn lookup_addr_mode_flags(mode: AddrMode) -> amf::T {
     match mode {
 
         Xxx  => { panic!("Invalid address mode."); }
 
-        Impl => AMF::combine(AMF::None, AMF::None, AMF::None),
-        Imm  => AMF::combine(AMF::None, AMF::None, AMF::None),
+        Impl => amf::combine(amf::None, amf::None, amf::None),
+        Imm  => amf::combine(amf::None, amf::None, amf::None),
 
-        Zpg  => AMF::combine(AMF::Resolve,  AMF::Zpg,  AMF::NoIndex),
-        ZpgX => AMF::combine(AMF::Resolve,  AMF::Zpg,  AMF::X      ),
-        ZpgY => AMF::combine(AMF::Resolve,  AMF::Zpg,  AMF::Y      ),
+        Zpg  => amf::combine(amf::Resolve,  amf::Zpg,  amf::NoIndex),
+        ZpgX => amf::combine(amf::Resolve,  amf::Zpg,  amf::X      ),
+        ZpgY => amf::combine(amf::Resolve,  amf::Zpg,  amf::Y      ),
 
-        Rel  => AMF::combine(AMF::Resolve,  AMF::None, AMF::NoIndex),
+        Rel  => amf::combine(amf::Resolve,  amf::None, amf::NoIndex),
 
-        Abs  => AMF::combine(AMF::Resolve,  AMF::Abs,  AMF::NoIndex),
-        AbsX => AMF::combine(AMF::Resolve,  AMF::Abs,  AMF::X      ),
-        AbsY => AMF::combine(AMF::Resolve,  AMF::Abs,  AMF::Y      ),
+        Abs  => amf::combine(amf::Resolve,  amf::Abs,  amf::NoIndex),
+        AbsX => amf::combine(amf::Resolve,  amf::Abs,  amf::X      ),
+        AbsY => amf::combine(amf::Resolve,  amf::Abs,  amf::Y      ),
 
-        Ind  => AMF::combine(AMF::Resolve,  AMF::Ind,  AMF::NoIndex),
-        XInd => AMF::combine(AMF::Resolve,  AMF::Ind,  AMF::X      ),
-        IndY => AMF::combine(AMF::Resolve,  AMF::Ind,  AMF::Y      ),
+        Ind  => amf::combine(amf::Resolve,  amf::Ind,  amf::NoIndex),
+        XInd => amf::combine(amf::Resolve,  amf::Ind,  amf::X      ),
+        IndY => amf::combine(amf::Resolve,  amf::Ind,  amf::Y      ),
 
     }
 }

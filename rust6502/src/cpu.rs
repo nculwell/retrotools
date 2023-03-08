@@ -1,6 +1,7 @@
 
 use crate::shared::*;
 use crate::shared::Opcode::*;
+use crate::shared::addr_mode_flag::is_set;
 
 // Set the N and Z flags.
 fn set_nz(cpu: &mut Cpu, byte_value: u8) {
@@ -131,7 +132,7 @@ fn resolve_address(
     cpu: &mut Cpu,
     mem: &Mem,
     admd: AddrMode,
-    admd_flags: AddrModeFlag::T,
+    admd_flags: addr_mode_flag::T,
 ) -> (bool, u16, u16)
 {
     let mut is_indirect = false;
@@ -139,7 +140,7 @@ fn resolve_address(
     let mut eff_addr: u16 = 0;
     let mut addr: u16 = mem.read(cpu.reg.pc) as u16;
     cpu.reg.pc += 1;
-    if AddrModeFlag::is_set(admd_flags, AddrModeFlag::Abs) {
+    if is_set(admd_flags, addr_mode_flag::Abs) {
         // Read second byte.
         addr |= (mem.read(cpu.reg.pc) as u16) << 8;
         cpu.reg.pc += 1;
@@ -153,7 +154,7 @@ fn resolve_address(
             assert!(admd == AddrMode::Abs);
         }
     } else {
-        if AddrModeFlag::is_set(admd_flags, AddrModeFlag::Ind) {
+        if is_set(admd_flags, addr_mode_flag::Ind) {
             // indirect
             if admd == AddrMode::XInd {
                 addr = mem.read_word(addr + cpu.reg.x as u16);
@@ -175,7 +176,7 @@ fn resolve_address(
             addr = ((cpu.reg.pc as i32) + ((addr as i8) as i32)) as u16;
         } else {
             // zero page
-            assert!(AddrModeFlag::is_set(admd_flags, AddrModeFlag::Zpg));
+            assert!(is_set(admd_flags, addr_mode_flag::Zpg));
             if admd == AddrMode::ZpgX {
                 addr += cpu.reg.x as u16;
             } else if admd == AddrMode::ZpgY {
@@ -392,7 +393,7 @@ pub fn interp_one_instruction(
         let mut operand: u16 = 0;
         let mut raw_operand: u16 = u16::MAX;
 
-        if AddrModeFlag::is_set(admd_flags, AddrModeFlag::Resolve) {
+        if is_set(admd_flags, addr_mode_flag::Resolve) {
             (is_indirect, operand, raw_operand) =
                 resolve_address(cpu, mem, instr.addr_mode, admd_flags);
         } else {
