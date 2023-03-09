@@ -1,16 +1,16 @@
 
-use crate::shared::{AddrMode, Opcode};
+use crate::shared::{AddrMode, Mnemonic};
 
 pub struct Instruction {
-    pub opcode: Opcode,
+    pub mnemonic: Mnemonic,
     pub addr_mode: AddrMode,
 }
 
-struct I(Opcode, AddrMode);
+struct I(Mnemonic, AddrMode);
 
 const INSTRUCTIONS_DEF: [I; 0x100] = {
 
-    use crate::shared::Opcode::*;
+    use crate::shared::Mnemonic::*;
     use crate::shared::AddrMode::*;
 
     [
@@ -276,9 +276,9 @@ const INSTRUCTIONS_DEF: [I; 0x100] = {
 
 };
 
-pub fn instruction_lookup(opcode_byte: u8) -> Instruction {
-    let I(opcode, addr_mode) = INSTRUCTIONS_DEF[opcode_byte as usize];
-    Instruction { opcode: opcode, addr_mode: addr_mode }
+pub fn instruction_lookup(opcode: u8) -> Instruction {
+    let I(mnemonic, addr_mode) = INSTRUCTIONS_DEF[opcode as usize];
+    Instruction { mnemonic: mnemonic, addr_mode: addr_mode }
 }
 
 use crate::shared::addr_mode_flag as amf;

@@ -1,9 +1,10 @@
 
-use num_derive::FromPrimitive;    
+use num_derive::FromPrimitive;
 //use num_traits::FromPrimitive;
 use std::convert::TryInto;
 
-const RAM_SIZE: usize = 0x10000;
+pub const C64_RAM_SIZE: usize = 64 * 1024;
+pub const C1541_RAM_SIZE: usize = 2 * 1024;
 
 pub fn word(lo: u8, hi: u8) -> u16 {
     (lo as u16) & ((hi as u16) << 8)
@@ -19,13 +20,13 @@ pub fn word_lo(w: u16) -> u8 {
 
 //#[derive(Debug)]
 pub struct Mem {
-    ram: [u8; RAM_SIZE],
+    ram: Vec<u8>,
 }
 
 impl Mem {
     // TODO: Handle special regions.
-    pub fn new() -> Mem {
-        Mem { ram: [0; RAM_SIZE] }
+    pub fn new(size: usize) -> Mem {
+        Mem { ram: vec![0; size] }
     }
     pub fn read(&self, addr: u16) -> u8 {
         self.ram[addr as usize]
@@ -65,10 +66,11 @@ pub struct Registers {
     pub s: u8, // stack pointer
     pub pc: u16, // program counter
     pub ic: usize, // instruction count
+    pub cc: CycleCount, // cycle count
 }
 
 #[derive(Clone,Copy,FromPrimitive,PartialEq,Debug)]
-pub enum Opcode {
+pub enum Mnemonic {
     ILLEGAL = 0,
     ADC, AND, ASL, BCC, BCS, BEQ, BIT, BMI, BNE, BPL, BRK,
     BVC, BVS, CLC, CLD, CLI, CLV, CMP, CPX, CPY, DEC, DEX,
@@ -136,6 +138,22 @@ pub enum AddrMode {
 
 }
 
+#[derive(PartialEq, PartialOrd, Debug, Clone, Copy)]
+pub struct CycleCount(pub usize);
+
+impl CycleCount {
+    pub fn add(&self, cycles: usize) -> CycleCount {
+        CycleCount(self.0 + cycles)
+    }
+}
+
+impl std::ops::Sub for CycleCount {
+    type Output = usize;
+    fn sub(self, other: Self) -> Self::Output {
+        self.0 - other.0
+    }
+}
+
 pub struct Cpu {
     pub reg: Registers,
 }
@@ -144,7 +162,7 @@ impl Cpu {
     pub fn new(start_addr: u16) -> Cpu {
         let reg = Registers {
             a: 0, x: 0, y: 0, p: 0, s: 0xFF,
-            pc: start_addr, ic: 0
+            pc: start_addr, ic: 0, cc: CycleCount(0),
         };
         Cpu { reg: reg }
     }
@@ -162,7 +180,7 @@ impl Cpu {
     }
 }
 
-pub struct Computer {
+pub struct Machine {
     pub cpu: Cpu,
     pub mem: Mem,
 }

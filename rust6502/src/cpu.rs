@@ -1,6 +1,6 @@
 
 use crate::shared::*;
-use crate::shared::Opcode::*;
+use crate::shared::Mnemonic::*;
 use crate::shared::addr_mode_flag::is_set;
 
 // Set the N and Z flags.
@@ -192,11 +192,11 @@ fn resolve_address(
 
 fn interp_immediate(
     cpu: &mut Cpu,
-    opcode: Opcode,
+    mnemonic: Mnemonic,
     operand: u8,
 )
 {
-    match opcode {
+    match mnemonic {
 
         // LOAD
 
@@ -228,11 +228,11 @@ fn interp_immediate(
 fn interp_address(
     cpu: &mut Cpu,
     mem: &mut Mem,
-    opcode: Opcode,
+    mnemonic: Mnemonic,
     addr: u16,
 )
 {
-    match opcode {
+    match mnemonic {
 
         // JUMPS
 
@@ -279,9 +279,10 @@ fn interp_address(
         ROL => { mem.write(addr, bitwise_rol(cpu, mem.read(addr))); }
         ROR => { mem.write(addr, bitwise_ror(cpu, mem.read(addr))); }
 
-        // The opcodes with immediate arguments can be applied to memory just
-        // by loading the value from memory and using the same opcode.
-        _ => { interp_immediate(cpu, opcode, mem.read(addr)); }
+        // The operations with immediate arguments can be applied to
+        // memory just by loading the value from memory and using the
+        // same mnemonic.
+        _ => { interp_immediate(cpu, mnemonic, mem.read(addr)); }
 
     }
 }
@@ -289,10 +290,10 @@ fn interp_address(
 fn interp_implied(
     cpu: &mut Cpu,
     mem: &mut Mem,
-    opcode: Opcode,
+    mnemonic: Mnemonic,
 )
 {
-    match opcode {
+    match mnemonic {
 
         // RETURN
 
@@ -368,14 +369,7 @@ pub fn interp_one_instruction(
 
         // Read the opcode.
         let opcode_addr = cpu.reg.pc;
-        let opcode_byte = mem.read(opcode_addr);
-
-        /*
-        let opcode = match num::FromPrimitive::from_u8(opcode_byte) {
-            Some(oc) => oc,
-            None => panic!("Unknown opcode: {}", opcode_byte),
-        };
-        */
+        let opcode = mem.read(opcode_addr);
 
         // Advance PC and increment the Instruction Counter.
         cpu.reg.pc += 1;
@@ -383,10 +377,10 @@ pub fn interp_one_instruction(
 
         // Decode the instruction.
 
-        let instr: Instruction = instruction_lookup(opcode_byte);
-        if instr.opcode == ILLEGAL {
+        let instr: Instruction = instruction_lookup(opcode);
+        if instr.mnemonic == ILLEGAL {
             panic!("Illegal instruction: {:02X} (PC={:04X}, IC={:X})",
-            opcode_byte, opcode_addr, cpu.reg.ic);
+            opcode, opcode_addr, cpu.reg.ic);
         }
         let admd_flags = lookup_addr_mode_flags(instr.addr_mode);
         let mut is_indirect: bool = false;
@@ -406,14 +400,14 @@ pub fn interp_one_instruction(
         }
 
         // trace_instruction(cpu, mem,
-        //   opcode_addr, instr.instruction, admd, admdFlags, operand, rawOperand);
+        //   opcode_addr, instr.mnemonic, admd, admdFlags, operand, rawOperand);
 
         // Execute.
 
         match instr.addr_mode {
-            AddrMode::Impl => { interp_implied(cpu, mem, instr.opcode); }
-            AddrMode::Imm  => { interp_immediate(cpu, instr.opcode, operand as u8); }
-            _              => { interp_address(cpu, mem, instr.opcode, operand); }
+            AddrMode::Impl => { interp_implied(cpu, mem, instr.mnemonic); }
+            AddrMode::Imm  => { interp_immediate(cpu, instr.mnemonic, operand as u8); }
+            _              => { interp_address(cpu, mem, instr.mnemonic, operand); }
         }
 
 }

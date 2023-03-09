@@ -1,4 +1,13 @@
 
+pub struct Pixel { pub r: u8, pub g: u8, pub b: u8 }
+
+const DISPLAY_W: usize = 400;
+const DISPLAY_H: usize = 200;
+
+pub struct Display {
+    pixels: [Pixel; DISPLAY_W * DISPLAY_H],
+}
+
 pub trait Media {
     fn draw(&self);
 }
