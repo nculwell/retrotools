@@ -58,6 +58,8 @@ pub mod flag {
     pub const C: T = T(0x01); // carry
 }
 
+type CycleCount = usize;
+
 pub struct Registers {
     pub a: u8,
     pub x: u8,
@@ -138,6 +140,7 @@ pub enum AddrMode {
 
 }
 
+/*
 #[derive(PartialEq, PartialOrd, Debug, Clone, Copy)]
 pub struct CycleCount(pub usize);
 
@@ -153,6 +156,7 @@ impl std::ops::Sub for CycleCount {
         self.0 - other.0
     }
 }
+*/
 
 pub struct Cpu {
     pub reg: Registers,
@@ -162,7 +166,8 @@ impl Cpu {
     pub fn new(start_addr: u16) -> Cpu {
         let reg = Registers {
             a: 0, x: 0, y: 0, p: 0, s: 0xFF,
-            pc: start_addr, ic: 0, cc: CycleCount(0),
+            pc: start_addr, ic: 0, cc: 0,
+            //cc: CycleCount(0),
         };
         Cpu { reg: reg }
     }
