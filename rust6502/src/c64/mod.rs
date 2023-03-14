@@ -5,17 +5,92 @@ use std::fs;
 const KB: usize = 1024;
 const RAM_SIZE: usize = 64 * KB;
 const COLOR_RAM_SIZE: usize = 1 * KB;
-const VIC2_REG_LENGTH: usize = 0x2F;
-const CIA_REG_LENGTH: usize = 0x10;
-const ROM_PATH: &str = "c64/rom";
+// The VIC-II register space is 0x40 bytes, but only the first 0x2F of
+// this is valid.
+const VIC_REG_LENGTH: usize = 0x40;
+// The CIA register space is 16 bytes (0x10), but we add 4 bytes for the
+// alarm time. The alarm time is writte via the TOD registers and can't
+// be read, but it has to be stored somewhere.
+const CIA_REG_LENGTH: usize = 0x14;
+// The SID register space is 0x20 bytes, but only the first 0x1D of
+// this is valid.
+const SID_REG_LENGTH: usize = 0x20;
+// The CHARGEN ROM only uses the 4 low bits of each byte, so really it's
+// only 2 KB in size, but we organize it as 4 KB to make addressing
+// easy. The ROM file is laid out like this as well.
 const CHARGEN_ROM_SIZE: usize = 4 * KB;
 const BASIC_ROM_SIZE: usize = 0x2000;
 const KERNAL_ROM_SIZE: usize = 0x2000;
 
+mod mos6510 {
+    const REG_00_DEFAULT: u8 = 0b00101111;
+    const REG_01_DEFAULT: u8 = 0b00110111;
+    enum RomRegion { Ram, Rom }
+    enum IoRegion { Ram, Io, CharRom }
+}
+
+struct Mos6510 {
+    // RAM addrs $00 and $01
+    // $00 = data direction I/O port register
+    // $01 = on-chip port register
+    reg: [mut u8; 2],
+    bank_A000: mos6510::RomRegion,
+    bank_D000: mos6510::IoRegion,
+    bank_E000: mos6510::RomRegion,
+}
+
+impl Mos6510 {
+
+    fn get(&self, addr: u16) {
+        self.reg[addr as usize]
+    }
+
+    fn set(&self, addr: u16, val: u8) {
+        use mos6510;
+        if addr == 0 {
+            self.reg[0]
+        } else {
+            let masked_val = val & self.reg[0];
+            self.reg[1] = masked_val;
+            let bank_bits = masked_val & 0b111;
+            if bank_bits == 0b000 || bank_bits == 0b100 {
+                self.bank_A000 = RomRegion::Ram;
+                self.bank_D000 = IoRegion::Ram;
+                self.bank_E000 = RomRegion::Ram;
+            } else {
+                match (bank_bits & 0b011) {
+                    0b001 => {
+                        self.bank_A000 = RomRegion::Ram;
+                        self.bank_E000 = RomRegion::Ram;
+                    },
+                    0b010 => {
+                        self.bank_A000 = RomRegion::Ram;
+                        self.bank_E000 = RomRegion::Rom;
+                    }
+                    0b011 => {
+                        self.bank_A000 = RomRegion::Rom;
+                        self.bank_E000 = RomRegion::Rom;
+                    }
+                }
+                match (bank_bits & 0b100) {
+                    0b000 => {
+                        self.bank_D000 = IoRegion::CharRom;
+                    },
+                    0b100 => {
+                        self.bank_D000 = IoRegion::Io;
+                    },
+                }
+            }
+        }
+    }
+
+}
+
 struct HardwareC64 {
+    mos6510: Mos6510,
     ram: [mut u8; RAM_SIZE],
     color_ram: [mut u8; COLOR_RAM_SIZE], // only the lower 4 bits of each byte are used
-    vic2_reg: [mut u8; VIC2_REG_LENGTH],
+    vic2_reg: [mut u8; VIC_REG_LENGTH],
     cia_reg: [[mut u8; CIA_REG_LENGTH]; 2],
     chargen_rom: [u8; CHARGEN_ROM_SIZE],
     basic_rom: [u8; BASIC_ROM_SIZE],
@@ -25,14 +100,15 @@ struct HardwareC64 {
 impl HardwareC64 {
 
     fn init(&self) -> io::Result<&mut HardwareC64> {
+        self.mos6510_init();
+        self.video_init();
         let chargen_rom = include_bytes!("chargen.rom")?;
         let basic_rom = include_bytes!("basic.rom")?;
         let kernal_rom = include_bytes!("kernal.rom")?;
-        self.video_init();
         HardwareC64 {
             ram: [0; RAM_SIZE],
             color_ram: [0; COLOR_RAM_SIZE],
-            vic2_reg: [0; VIC2_REG_LENGTH],
+            vic2_reg: [0; VIC_REG_LENGTH],
             cia_reg: [[0; CIA_REG_LENGTH]; 2],
             chargen_rom: chargen_rom,
             basic_rom: basic_rom,
@@ -40,16 +116,102 @@ impl HardwareC64 {
         }
     }
 
-    /*
-    fn rom_load(&self, rom_filename: &str) -> io::Result<Vec<u8>> {
-        let path = format!("{}/{}", ROM_PATH, rom_filename);
-        let rom = fs::read(path)?;
-        Ok(path)
+    fn mem_get(&self, addr: u16) -> u8 {
+        let hi_bits = addr & 0xF000;
+        match hi_bits {
+            0x0000 =>
+                if addr <= 1 {
+                    self.mos6510.get(addr)
+                } else {
+                    self.ram[addr]
+                },
+            0xA000, 0xB000 =>
+                match self.mos6510.bank_A000 {
+                    mos6510::RomRegion::Ram => self.ram[addr],
+                    mos6510::RomRegion::Rom => self.basic_rom[addr - 0xA000],
+                },
+            0xD000 =>
+                match self.mos6510.bank_D000 {
+                    mos6510::IoRegion::Ram => self.ram[addr],
+                    mos6510::IoRegion::Io => self.io_get(addr),
+                    mos6510::IoRegion::CharRom  => self.chargen_rom[addr - 0xD000],
+                },
+            0xE000, 0xF000 =>
+                match self.mos6510.bank_E000 {
+                    mos6510::RomRegion::Ram => self.ram[addr],
+                    mos6510::RomRegion::Rom => self.basic_rom[addr - 0xE000],
+                },
+           _ => self.ram[addr],
+        }
     }
-    */
+
+    fn mem_set(&self, addr: u16, val: u8) {
+        use mos6510::IoRegion;
+        let hi_bits = addr & 0xF000;
+        if hi_bits == 0x0000 && addr <= 1 {
+            self.mos6510.set(addr, val);
+        } else if hi_bits == 0xD000 && self.mos6510.bank_D000 == Io {
+            self.io_set(addr, val);
+        } else {
+            self.ram[addr] = val;
+        }
+    }
+
+    fn io_get(&self, addr: u16) -> u8 {
+        match addr & (0b11111100 << 8) {
+            0xD000 => self.video_read(addr & 0x3F),
+            0xD400 => self.sid_read(addr & 0x1F),
+            0xD800 => {
+                if addr < 0xDBE8 {
+                    self.color_ram[addr - 0xD800]
+                } else {
+                    self.ram[addr]
+                }
+            },
+            0xDC00 => {
+                match addr & 0xFF00 {
+                    0xDC00 => self.cia_read(0, addr & 0x0F),
+                    0xDD00 => self.cia_read(1, addr & 0x0F),
+                    0xDE00 => self.io_read(0, addr & 0xFF),
+                    0xDF00 => self.io_read(1, addr & 0xFF),
+                }
+            },
+        }
+    }
+
+    fn io_set(&self, addr: u16, val: u8) {
+        match addr & (0b11111100 << 8) {
+            0xD000 => { self.video_write(addr & 0x3F, val) }
+            0xD400 => { self.sid_write(addr & 0x1F, val) }
+            0xD800 => {
+                if addr < 0xDBE8 {
+                    self.color_ram[addr - 0xD800] = val & 0x0F;
+                } else {
+                    self.ram[addr] = val & 0x0F;
+                }
+            },
+            0xDC00 => {
+                match addr & 0xFF00 {
+                    0xDC00 => self.cia_write(0, addr & 0x0F, val),
+                    0xDD00 => self.cia_write(1, addr & 0x0F, val),
+                    0xDE00 => self.io_write(0, addr & 0xFF, val),
+                    0xDF00 => self.io_write(1, addr & 0xFF, val),
+                }
+            },
+        }
+    }
+
+    fn mos6510_init(&self) {
+        Mos6510 {
+            reg: &[mos6510::REG_00_DEFAULT, mos6510::REG_01_DEFAULT],
+            bank_A000: mos6510::RomRegion::Rom,
+            bank_D000: mos6510::IoRegion::Io,
+            bank_E000: mos6510::RomRegion::Rom,
+        }
+    }
 
     fn video_init(&self) {
-        self.vic2_reg = [0; VIC2_REG_LENGTH];
+        self.vic2_reg = [0; VIC_REG_LENGTH];
         self.vic2_reg[0x11] = 0b00011011;
         self.vic2_reg[0x16] = 0b11001000;
     }
@@ -64,17 +226,35 @@ impl HardwareC64 {
         self.vic2_reg[conv_addr]
     }
 
-    fn cia_write(&self, cia_number: usize, addr: u16, val: u8) {
-        // TODO
-        let conv_addr = cia_addr_conv(cia_number, addr);
-        self.cia_reg[cia_number-1][conv_addr] = val;
+    fn cia_write(&self, cia_index: usize, addr: u16, val: u8) {
+        let reg = self.cia_reg[cia_index];
+        match addr {
+            0x00, 0x01 => {
+                // mask with corresponding data direction register
+                let masked_val = val & reg[addr + 2];
+                reg[addr] = masked_val;
+            }
+            0x08, 0x09, 0x0A, 0x0B => {
+                // These are the TOD registers.
+                // What happens when we write to them depends on bit 7
+                // of the Timer B control register. When 1, a write sets
+                // the alarm time. When 0, a write sets the TOD.
+                let timer_b_ctrl_reg = reg[0x0F];
+                let set_alarm = 0 != (timer_b_ctrl_reg & (1 << 7));
+                let set_addr = if set_alarm { addr + 0x08 } else { addr };
+                reg[set_addr] = val;
+            }
+            _ => { reg[addr] = val; }
+        }
     }
 
-    fn cia_read(&self, cia_number: usize, addr: u16) {
-        // TODO
-        let conv_addr = cia_addr_conv(cia_number, addr);
-        self.cia_reg[cia_number-1][conv_addr]
+    fn cia_read(&self, cia_index: usize, addr: u16) {
+        self.cia_reg[cia_index][addr]
     }
+
+    // IO areas not supported, these are dummy operations.
+    fn io_read(&self, io_area_index: usize, addr: u16) -> u8 { 0 }
+    fn io_write(&self, io_area_index: usize, addr: u16, val: u8) { }
 
 }
 
