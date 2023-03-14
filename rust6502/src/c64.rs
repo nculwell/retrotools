@@ -2,35 +2,48 @@
 
 use std::fs;
 
+const KB: usize = 1024;
+const RAM_SIZE: usize = 64 * KB;
+const COLOR_RAM_SIZE: usize = 1 * KB;
 const VIC2_REG_LENGTH: usize = 0x2F;
 const CIA_REG_LENGTH: usize = 0x10;
 const ROM_PATH: &str = "c64/rom";
+const CHARGEN_ROM_SIZE: usize = 4 * KB;
+const BASIC_ROM_SIZE: usize = 0x2000;
+const KERNAL_ROM_SIZE: usize = 0x2000;
 
 struct HardwareC64 {
-    ram: [mut u8; 64  *1024],
-    color_ram: [mut u8; 1024], // only the lower 4 bits of each byte are used
+    ram: [mut u8; RAM_SIZE],
+    color_ram: [mut u8; COLOR_RAM_SIZE], // only the lower 4 bits of each byte are used
     vic2_reg: [mut u8; VIC2_REG_LENGTH],
     cia_reg: [[mut u8; CIA_REG_LENGTH]; 2],
-    chargen_rom: [u8; 4 * 1024],
-    basic_rom: [u8; 0x2000],
-    kernal_rom: [u8; 0x2000],
+    chargen_rom: [u8; CHARGEN_ROM_SIZE],
+    basic_rom: [u8; BASIC_ROM_SIZE],
+    kernal_rom: [u8; KERNAL_ROM_SIZE],
 }
 
 impl HardwareC64 {
 
-    fn init(&self) -> io::Result<()> {
-        let (chargen, basic, kernal) = self.rom_load()?;
+    fn init(&self) -> io::Result<&mut HardwareC64> {
+        let chargen_rom = self.rom_load("chargen.rom")?;
+        let basic_rom = self.rom_load("basic.rom")?;
+        let kernal_rom = self.rom_load("kernal.rom")?;
         self.video_init();
+        HardwareC64 {
+            ram: [0; RAM_SIZE],
+            color_ram: [0; COLOR_RAM_SIZE],
+            vic2_reg: [0; VIC2_REG_LENGTH],
+            cia_reg: [[0; CIA_REG_LENGTH]; 2],
+            chargen_rom: chargen_rom,
+            basic_rom: basic_rom,
+            kernal_rom, kernal_rom,
+        }
     }
 
-    fn rom_load(&self) -> io::Result<(Vec<u8>, Vec<u8>, Vec<u8>)> {
-        let chargen_path = format!("{}/{}", ROM_PATH, "chargen.rom");
-        let basic_path = format!("{}/{}", ROM_PATH, "basic.rom");
-        let kernal_path = format!("{}/{}", ROM_PATH, "kernal.rom");
-        let chargen_rom = fs::read(chargen_path)?;
-        let basic_rom = fs::read(basic_path)?;
-        let kernal_rom = fs::read(kernal_path)?;
-        Ok((chargen_rom, basic_rom, kernal_rom))
+    fn rom_load(&self, rom_filename: &str) -> io::Result<Vec<u8>> {
+        let path = format!("{}/{}", ROM_PATH, rom_filename);
+        let rom = fs::read(path)?;
+        Ok(path)
     }
 
     fn video_init(&self) {
