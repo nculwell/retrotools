@@ -25,9 +25,9 @@ struct HardwareC64 {
 impl HardwareC64 {
 
     fn init(&self) -> io::Result<&mut HardwareC64> {
-        let chargen_rom = self.rom_load("chargen.rom")?;
-        let basic_rom = self.rom_load("basic.rom")?;
-        let kernal_rom = self.rom_load("kernal.rom")?;
+        let chargen_rom = include_bytes!("chargen.rom")?;
+        let basic_rom = include_bytes!("basic.rom")?;
+        let kernal_rom = include_bytes!("kernal.rom")?;
         self.video_init();
         HardwareC64 {
             ram: [0; RAM_SIZE],
@@ -40,11 +40,13 @@ impl HardwareC64 {
         }
     }
 
+    /*
     fn rom_load(&self, rom_filename: &str) -> io::Result<Vec<u8>> {
         let path = format!("{}/{}", ROM_PATH, rom_filename);
         let rom = fs::read(path)?;
         Ok(path)
     }
+    */
 
     fn video_init(&self) {
         self.vic2_reg = [0; VIC2_REG_LENGTH];
