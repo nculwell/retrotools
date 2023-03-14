@@ -25,14 +25,21 @@ mod mos6510 {
     const REG_00_DEFAULT: u8 = 0b00101111;
     const REG_01_DEFAULT: u8 = 0b00110111;
 
-    enum RomRegion { Ram, Rom }
-    enum IoRegion { Ram, Io, CharRom }
+    enum RomRegion {
+        Ram,
+        Rom,
+    }
+    enum IoRegion {
+        Ram,
+        Io,
+        CharRom,
+    }
 
     struct Mos6510 {
         // RAM addrs $00 and $01
         // $00 = data direction I/O port register
         // $01 = on-chip port register
-        reg: [mut u8; 2],
+        reg: [u8; 2],
         bank_A000: RomRegion,
         bank_D000: IoRegion,
         bank_E000: RomRegion,
@@ -48,12 +55,11 @@ mod mos6510 {
     }
 
     impl Mos6510 {
-
         fn get(&self, addr: u16) {
             self.reg[addr as usize]
         }
 
-        fn set(&self, addr: u16, val: u8) {
+        fn set(&mut self, addr: u16, val: u8) {
             if addr == 0 {
                 self.reg[0]
             } else {
@@ -69,7 +75,7 @@ mod mos6510 {
                         0b001 => {
                             self.bank_A000 = RomRegion::Ram;
                             self.bank_E000 = RomRegion::Ram;
-                        },
+                        }
                         0b010 => {
                             self.bank_A000 = RomRegion::Ram;
                             self.bank_E000 = RomRegion::Rom;
@@ -82,27 +88,24 @@ mod mos6510 {
                     match (bank_bits & 0b100) {
                         0b000 => {
                             self.bank_D000 = IoRegion::CharRom;
-                        },
+                        }
                         0b100 => {
                             self.bank_D000 = IoRegion::Io;
-                        },
+                        }
                     }
                 }
             }
         }
-
     } // impl Mos6510
-
 } // mod mos6510
-
 
 struct HardwareC64 {
     mos6510: Mos6510,
-    ram: [mut u8; RAM_SIZE],
-    color_ram: [mut u8; COLOR_RAM_SIZE], // only the lower 4 bits of each byte are used
-    vic2_reg: [mut u8; VIC_REG_LENGTH],
+    ram: [u8; RAM_SIZE],
+    color_ram: [u8; COLOR_RAM_SIZE], // only the lower 4 bits of each byte are used
+    vic2_reg: [u8; VIC_REG_LENGTH],
     vic2_interrupt_line: u16,
-    cia_reg: [[mut u8; CIA_REG_LENGTH]; 2],
+    cia_reg: [[u8; CIA_REG_LENGTH]; 2],
     chargen_rom: [u8; CHARGEN_ROM_SIZE],
     basic_rom: [u8; BASIC_ROM_SIZE],
     kernal_rom: [u8; KERNAL_ROM_SIZE],
@@ -120,45 +123,43 @@ fn new() -> io::Result<&HardwareC64> {
         cia_reg: [[0; CIA_REG_LENGTH]; 2],
         chargen_rom: chargen_rom,
         basic_rom: basic_rom,
-        kernal_rom, kernal_rom,
-    }
+        kernal_rom,
+        kernal_rom,
+    };
     hw.mos6510_init();
     hw.video_init();
 }
 
 impl HardwareC64 {
-
     fn mem_get(&self, addr: u16) -> u8 {
         use mos6510;
         let hi_bits = addr & 0xF000;
         match hi_bits {
-            0x0000 =>
+            0x0000 => {
                 if addr <= 1 {
                     self.mos6510.get(addr)
                 } else {
                     self.ram[addr]
-                },
-            0xA000, 0xB000 =>
-                match self.mos6510.bank_A000 {
-                    RomRegion::Ram => self.ram[addr],
-                    RomRegion::Rom => self.basic_rom[addr - 0xA000],
-                },
-            0xD000 =>
-                match self.mos6510.bank_D000 {
-                    IoRegion::Ram => self.ram[addr],
-                    IoRegion::Io => self.io_read(addr),
-                    IoRegion::CharRom  => self.chargen_rom[addr - 0xD000],
-                },
-            0xE000, 0xF000 =>
-                match self.mos6510.bank_E000 {
-                    RomRegion::Ram => self.ram[addr],
-                    RomRegion::Rom => self.basic_rom[addr - 0xE000],
-                },
-           _ => self.ram[addr],
+                }
+            }
+            0xA000 | 0xB000 => match self.mos6510.bank_A000 {
+                RomRegion::Ram => self.ram[addr],
+                RomRegion::Rom => self.basic_rom[addr - 0xA000],
+            },
+            0xD000 => match self.mos6510.bank_D000 {
+                IoRegion::Ram => self.ram[addr],
+                IoRegion::Io => self.io_read(addr),
+                IoRegion::CharRom => self.chargen_rom[addr - 0xD000],
+            },
+            0xE000 | 0xF000 => match self.mos6510.bank_E000 {
+                RomRegion::Ram => self.ram[addr],
+                RomRegion::Rom => self.basic_rom[addr - 0xE000],
+            },
+            _ => self.ram[addr],
         }
     }
 
-    fn mem_set(&self, addr: u16, val: u8) {
+    fn mem_set(&mut self, addr: u16, val: u8) {
         use mos6510::IoRegion;
         let hi_bits = addr & 0xF000;
         if hi_bits == 0x0000 && addr <= 1 {
@@ -180,36 +181,32 @@ impl HardwareC64 {
                 } else {
                     self.ram[addr]
                 }
-            },
-            0xDC00 => {
-                match addr & 0xFF00 {
-                    0xDC00 => self.cia_read(0, addr & 0x0F),
-                    0xDD00 => self.cia_read(1, addr & 0x0F),
-                    0xDE00 => self.io_read(0, addr & 0xFF),
-                    0xDF00 => self.io_read(1, addr & 0xFF),
-                }
+            }
+            0xDC00 => match addr & 0xFF00 {
+                0xDC00 => self.cia_read(0, addr & 0x0F),
+                0xDD00 => self.cia_read(1, addr & 0x0F),
+                0xDE00 => self.io_read(0, addr & 0xFF),
+                0xDF00 => self.io_read(1, addr & 0xFF),
             },
         }
     }
 
-    fn io_write(&self, addr: u16, val: u8) {
+    fn io_write(&mut self, addr: u16, val: u8) {
         match addr & (0b11111100 << 8) {
-            0xD000 => { self.video_write(addr & 0x3F, val) }
-            0xD400 => { self.sid_write(addr & 0x1F, val) }
+            0xD000 => { self.video_write(addr & 0x3F, val); }
+            0xD400 => { self.sid_write(addr & 0x1F, val); }
             0xD800 => {
                 if addr < 0xDBE8 {
                     self.color_ram[addr - 0xD800] = val & 0x0F;
                 } else {
                     self.ram[addr] = val & 0x0F;
                 }
-            },
-            0xDC00 => {
-                match addr & 0xFF00 {
-                    0xDC00 => self.cia_write(0, addr & 0x0F, val),
-                    0xDD00 => self.cia_write(1, addr & 0x0F, val),
-                    0xDE00 => self.io_write(0, addr & 0xFF, val),
-                    0xDF00 => self.io_write(1, addr & 0xFF, val),
-                }
+            }
+            0xDC00 => match addr & 0xFF00 {
+                0xDC00 => { self.cia_write(0, addr & 0x0F, val); }
+                0xDD00 => { self.cia_write(1, addr & 0x0F, val); }
+                0xDE00 => { self.io_write(0, addr & 0xFF, val); }
+                0xDF00 => { self.io_write(1, addr & 0xFF, val); }
             },
         }
     }
@@ -224,7 +221,7 @@ impl HardwareC64 {
         self.vic2_reg[addr]
     }
 
-    fn video_write(&self, addr: u16, val: u8) {
+    fn video_write(&mut self, addr: u16, val: u8) {
         match addr {
             0x11 => {
                 self.vic2_reg[addr] = val & 0b01111111;
@@ -256,7 +253,9 @@ impl HardwareC64 {
                 // Write: Enable further detection of sprite-background collisions.
                 // TODO: not implemented yet
             }
-            _ => { self.vic2_reg[addr] = val; }
+            _ => {
+                self.vic2_reg[addr] = val;
+            }
         }
     }
 
@@ -264,15 +263,15 @@ impl HardwareC64 {
         self.cia_reg[cia_index][addr]
     }
 
-    fn cia_write(&self, cia_index: usize, addr: u16, val: u8) {
+    fn cia_write(&mut self, cia_index: usize, addr: u16, val: u8) {
         let reg = self.cia_reg[cia_index];
         match addr {
-            0x00, 0x01 => {
+            0x00 | 0x01 => {
                 // mask with corresponding data direction register
                 let masked_val = val & reg[addr + 2];
                 reg[addr] = masked_val;
             }
-            0x08, 0x09, 0x0A, 0x0B => {
+            0x08 | 0x09 | 0x0A | 0x0B => {
                 // These are the TOD registers.
                 // What happens when we write to them depends on bit 7
                 // of the Timer B control register. When 1, a write sets
@@ -282,7 +281,9 @@ impl HardwareC64 {
                 let set_addr = if set_alarm { addr + 0x08 } else { addr };
                 reg[set_addr] = val;
             }
-            _ => { reg[addr] = val; }
+            _ => {
+                reg[addr] = val;
+            }
         }
     }
 
@@ -295,7 +296,7 @@ impl HardwareC64 {
         }
     }
 
-    fn sid_write(&self, addr: u16, val: u8) {
+    fn sid_write(&mut self, addr: u16, val: u8) {
         // write only to write-only registers
         if addr < 0x19 {
             self.sid_reg[addr] = val;
@@ -303,9 +304,10 @@ impl HardwareC64 {
     }
 
     // IO areas not supported, these are dummy operations.
-    fn io_read(&self, io_area_index: usize, addr: u16) -> u8 { 0 }
-    fn io_write(&self, io_area_index: usize, addr: u16, val: u8) { }
-
+    fn io_read(&self, io_area_index: usize, addr: u16) -> u8 {
+        0
+    }
+    fn io_write(&mut self, io_area_index: usize, addr: u16, val: u8) {}
 }
 
 fn video_addr_conv(addr: u16) -> usize {
@@ -324,8 +326,10 @@ fn cia_addr_conv(cia_number: usize, addr: u16) -> usize {
     let range_start: usize = match cia_number {
         1 => 0xDD00,
         2 => 0xDC00,
-        _ => { panic!("Invalid CIA number: {}", cia_number) }
-    }
+        _ => {
+            panic!("Invalid CIA number: {}", cia_number)
+        }
+    };
     if addr < range_start || addr >= (range_start + 0x1000) {
         panic!("CIA address out of range: {04X}", addr);
     }
@@ -333,7 +337,6 @@ fn cia_addr_conv(cia_number: usize, addr: u16) -> usize {
 }
 
 fn render(hw: HardwareC64) {
-
     // Figure out video setup.
 
     // $DD00 Port A, serial bus access. Bits:
@@ -348,8 +351,10 @@ fn render(hw: HardwareC64) {
         1 => 0x8000,
         2 => 0x4000,
         3 => 0x0000,
-        _ => { panic!("Invalid bank bits: {}", bank_bits); }
-    }
+        _ => {
+            panic!("Invalid bank bits: {}", bank_bits);
+        }
+    };
 
     // $D011 Screen control register #1. Bits:
     //   Bits #0-#2: Vertical raster scroll.
@@ -373,7 +378,7 @@ fn render(hw: HardwareC64) {
 
     // $D018 Memory setup register.
     let mem_setup_reg = hw.vic2_reg[0x18];
-    let (video_rel_addr: u16, use_chargen: bool) = {
+    let (video_rel_addr, use_chargen): (u16, bool) = {
         if !bitmap_mode {
             // Text mode
             // Bits #1-#3: In text mode, pointer to character memory (bits #11-#13),
@@ -381,8 +386,7 @@ fn render(hw: HardwareC64) {
             let text_mode_bits = (mem_setup_reg >> 1) & 0b111;
             let rel_addr = (text_mode_bits as u16) * 0x800;
             // Values %010 and %011 in VIC bank #0 and #2 select Character ROM instead.
-            let use_chargen: bool =
-                (bank_bits == 0 || bank_bits == 2)
+            let use_chargen: bool = (bank_bits == 0 || bank_bits == 2)
                 && (text_mode_bits == 0b010 || text_mode_bits == 0b011);
             (rel_addr, use_chargen)
         } else {
@@ -392,7 +396,7 @@ fn render(hw: HardwareC64) {
             let rel_addr = (bitmap_bit as u16) * 0x2000;
             (rel_addr, false)
         }
-    }
+    };
     let video_base_addr = bank_base_addr + video_rel_addr;
     // Bits #4-#7: Pointer to screen memory (bits #10-#13), relative to VIC bank
     let screen_ptr_bits = (mem_setup_reg >> 4) & 0b1111;
@@ -421,14 +425,12 @@ fn render(hw: HardwareC64) {
             let sprite_x_addr = sprites_base_addr + (2 * i);
             let sprite_y_addr = sprite_x_addr + 1;
             let sprite_x_coord =
-                hw.vic2_reg[sprite_y_addr]
-                + (((sprite_x_coord_bit8_reg >> i) & 1) << 8);
+                hw.vic2_reg[sprite_y_addr] + (((sprite_x_coord_bit8_reg >> i) & 1) << 8);
             let sprite_y_coord = hw.vic2_reg[sprite_y_addr];
             let sprite_color = hw.vic2_reg[sprites_color_base_addr + i];
             // render this sprite
         }
     }
-
 }
 
 // $D018 Memory setup register. Bits:
@@ -465,4 +467,3 @@ fn render(hw: HardwareC64) {
 //         %1101, 13: $3400-$37FF, 13312-14335.
 //         %1110, 14: $3800-$3BFF, 14336-15359.
 //         %1111, 15: $3C00-$3FFF, 15360-16383.
-
