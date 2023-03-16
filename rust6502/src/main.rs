@@ -40,7 +40,7 @@ fn main_loop(
         let cycle_count_after = cpu.reg.cc;
         let cycles_elapsed = cycle_count_after - cycle_count_before;
         let end_time = start_time
-            + Duration::from_millis((cycles_elapsed as f64) * CYCLE_DUR_MS);
+            + std::time::Duration::from_millis(((cycles_elapsed as f64) * CYCLE_DUR_MS) as u64);
         // disk drive catchup
         // video catchup
         // sound catchup
@@ -48,13 +48,13 @@ fn main_loop(
         // render
         video::render(mem, sdl);
         // delay until next cpu instruction
-        if (THROTTLE_CPU) {
+        if THROTTLE_CPU {
             loop {
                 time = std::time::Instant::now();
-                if (time >= end_time) {
+                if time >= end_time {
                     break;
                 }
-                std::thread::sleep(0); // yield timeslice
+                std::thread::sleep(std::time::Duration::from_millis(0)); // yield timeslice
             }
         }
     }
