@@ -1,11 +1,14 @@
 #!/usr/bin/python3
 
+# Do a binary diff of two files, and print the result in a readable format.
+
 import sys, re
 import base40, c64text
 
 class ArgExc(Exception):
     pass
 
+# How many bytes to print in one line.
 LINE_LENGTH = 32
 OFFSET_WIDTH = 6
 
