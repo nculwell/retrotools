@@ -1,6 +1,25 @@
 #!/usr/bin/python3
 
 # Do a binary diff of two files, and print the result in a readable format.
+#
+# Usage: ddiff.py [options] <left-file> <right-file> [output-file]
+#
+# Arguments:
+#   left-file    First file to compare
+#   right-file   Second file to compare
+#   output-file  Where to write the diff output (default: stdout)
+#
+# Options:
+#   -a  Append ASCII text representation of each line (high bit masked off)
+#   -c  Append C64 PETSCII text representation of each line
+#   -b  Append base40-decoded text representation of each line (even offset)
+#   -o  Append base40-decoded text representation starting at odd byte offset
+#
+# Output format:
+#   Each differing chunk is shown as a pair of lines (left then right).
+#   Bytes that differ are wrapped in parentheses.
+#   Bytes absent from the shorter file are shown as --.
+#   Groups of 8 and 16 bytes are separated by extra spaces.
 
 import sys, re
 import base40, c64text
