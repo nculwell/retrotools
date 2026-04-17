@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
 
+# Hex dump a binary file, showing hex bytes alongside ASCII and C64 screen-code
+# text representations. Optionally restrict the dump to a byte range.
+#
+# Usage: dumptext.py <file> [begin [end]]
+#
+# Arguments:
+#   file   Binary file to dump
+#   begin  Start offset in hex (default: 0)
+#   end    End offset in hex, inclusive (default: end of file)
+#
+# Output: one line per 32 bytes, showing the file offset, hex bytes, and ASCII.
+
 import os, sys
 import traceback
 import base40
@@ -32,6 +44,10 @@ def main():
         i += LINE_BYTES
 
 def print_line(content, base, b, e):
+    # Print one LINE_BYTES-wide row starting at file offset `base`.
+    # Bytes outside the [b, e] range are shown as blanks.
+    # This lets us display only the bytes we want to see, while
+    # keeping them aligned in the correct columns.
     hexes = []
     line_ascii_chars = []
     c64screen_chars = []
@@ -69,11 +85,15 @@ def print_line(content, base, b, e):
           ])
 
 def space16(hex_text):
+    # Insert a space at the midpoint of a hex string to separate two groups of 16.
     if LINE_BYTES == 32:
         midpoint = int(len(hex_text)/2)
         return hex_text[:midpoint] + " " + hex_text[midpoint:]
 
 def get_ascii_char(c):
+    # Map a byte to a printable ASCII character.
+    # First we zero the high bit, then we map NULL to '.', printable
+    # characters to themselves, and all others to '~'.
     cx = c & 0x7F
     if c == 0:
         ch = "."
@@ -84,6 +104,11 @@ def get_ascii_char(c):
     return ch
 
 def get_c64screen_char(c):
+    # Map a C64 screen code to a printable character. Codes 0x00–0x1F
+    # correspond to '@', 'A'–'Z', etc. (screen code offset by 64),
+    # higher codes fall back to ASCII.  (This isn't really a correct
+    # mapping for a lot of the higher code points, but that's fine, we
+    # mostly just want to see letters and numbers here.)
     if c < 0x20:
         return get_ascii_char(64 + c)
     else:
