@@ -34,6 +34,9 @@ OFFSET_WIDTH = 6
 class Diff:
 
     def __init__(self, lft_file, rgt_file, **kwargs):
+        # lft_file, rgt_file: open binary file objects to compare
+        # kwargs: print_c64, print_base40, print_base40_odd, print_ascii (bool flags)
+        #         line_length, offset_width (layout overrides)
         self.lft_file = lft_file
         self.rgt_file = rgt_file
         self.line_length = kwargs.get("line_length", LINE_LENGTH)
@@ -47,6 +50,9 @@ class Diff:
         self.print_ascii = kwargs.get("print_ascii", None)
 
     def diff(self, diff_file):
+        # Loop over both files line_length bytes at a time, printing only
+        # chunks where the two files differ. Consecutive differing chunks are
+        # separated by a dot-row connector; isolated chunks get a blank line.
         line_number = 1
         line_offset = 0
         prev_different = False
@@ -68,6 +74,9 @@ class Diff:
             line_offset += self.line_length
 
     def _find_differences(self, lft_len, rgt_len):
+        # Populate self.differences[i] = 1 for each byte position that differs
+        # (including positions present in only one file). Returns True if any
+        # byte in this chunk differs.
         min_len = min((lft_len, rgt_len))
         max_len = max((lft_len, rgt_len))
         assert min_len > 0
@@ -91,13 +100,14 @@ class Diff:
                 self.differences[i] = 0
         return different
 
-    def _print_differences(
+    def _print_differences(  
         self,
         f,
         line_offset: int,
         lft_len: int,
         rgt_len: int
     ):
+        # print both sides of one differing chunk
         self._print_line(f, line_offset, lft_len, self.lft_line)
         self._print_line(f, line_offset, rgt_len, self.rgt_line)
 
@@ -108,6 +118,7 @@ class Diff:
         line_len: int,
         line: bytearray
     ):
+        # print one side of a differing chunk with hex + optional text
         f.write(("%%0%dX:" % self.offset_width) % line_offset)
 
         for i in range(self.line_length):
@@ -160,6 +171,8 @@ class Diff:
         print(file=f) # end of the line
 
 def parse_args(argv):
+    # Parse sys.argv[1:] into (filenames dict, opts dict).
+    # Raises ArgExc on invalid switches or wrong number of positional args.
     filenames = {}
     opts = {}
     args = []
